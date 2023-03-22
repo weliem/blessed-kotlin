@@ -62,11 +62,17 @@ private fun unsignedToSigned(unsigned: ULong, size: ULong): Long {
  * Convert an integer into the signed bits of a given length.
  */
 private fun intToSignedBits(value: Int, size: Int): Int {
-    var i = value
-    if (i < 0) {
-        i = (1 shl size - 1) + (i and (1 shl size - 1) - 1)
+    val mask = if(size < 32) { (1 shl (size - 1)) - 1 } else Int.MAX_VALUE
+    val i = value
+    return if (i < 0) {
+        (1 shl size - 1) + (i and (1 shl size - 1) - 1)
+    } else {
+        if(i > mask) {
+            throw IllegalArgumentException("Integer too large")
+        }
+        val result = i and mask
+        result
     }
-    return i
 }
 
 public fun intToUnsignedBits(value: Int, size: Int): UInt {
@@ -232,15 +238,12 @@ fun byteArrayOf(value: Double, length: UInt, precision: Int, order : ByteOrder =
     if (length == 2u) {
         val localMantissa = intToSignedBits(mantissa, 12)
         val localExponent = intToSignedBits(exponent, 4)
-        var index = 0
         if (order == LITTLE_ENDIAN) {
-            result[index++] = (localMantissa and 0xFF).toByte()
-            result[index] = (localMantissa shr 8 and 0x0F).toByte()
-            result[index] = (result[index] + (localExponent and 0x0F shl 4)).toByte()
+            result[0] = (localMantissa and 0xFF).toByte()
+            result[1] = ((localMantissa shr 8 and 0x0F) + ((localExponent and 0x0F) shl 4)).toByte()
         } else {
-            result[index] = (localMantissa shr 8 and 0x0F).toByte()
-            result[index++] = (result[index] + (localExponent and 0x0F shl 4)).toByte()
-            result[index] = (localMantissa and 0xFF).toByte()
+            result[0] = ((localMantissa shr 8 and 0x0F) + ((localExponent and 0x0F) shl 4)).toByte()
+            result[1] = (localMantissa and 0xFF).toByte()
         }
     } else if(length == 4u) {
         val localMantissa = intToSignedBits(mantissa, 24)
