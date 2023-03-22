@@ -63,21 +63,28 @@ private fun unsignedToSigned(unsigned: ULong, size: ULong): Long {
  */
 private fun intToSignedBits(value: Int, size: Int): Int {
     val mask = if(size < 32) { (1 shl (size - 1)) - 1 } else Int.MAX_VALUE
-    val i = value
-    return if (i < 0) {
-        (1 shl size - 1) + (i and (1 shl size - 1) - 1)
+    return if (value < 0) {
+        (1 shl size - 1) + (value and (1 shl size - 1) - 1)
     } else {
-        if(i > mask) {
+        if (value > mask) {
             throw IllegalArgumentException("Integer too large")
         }
-        val result = i and mask
+        val result = value and mask
         result
     }
 }
 
-public fun intToUnsignedBits(value: Int, size: Int): UInt {
-    val mask = (1 shl (size / 8)) - 1
-    return (value and mask).toUInt()
+private fun longToSignedBits(value: Long, size: Int): Long {
+    val mask = if(size < 64) { (1.toLong() shl (size - 1)) - 1 } else Long.MAX_VALUE
+    return if (value < 0) {
+        (1 shl size - 1) + (value and (1.toLong() shl size - 1) - 1)
+    } else {
+        if (value > mask) {
+            throw IllegalArgumentException("Integer too large")
+        }
+        val result = value and mask
+        result
+    }
 }
 
 /**
@@ -188,7 +195,7 @@ fun ByteArray.getString(offset: UInt = 0u) : String {
     return String(this, offset.toInt(), length, StandardCharsets.ISO_8859_1).trim()
 }
 
-fun byteArrayOf(value: UInt, length: UInt, order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
+fun byteArrayOf(value: ULong, length: UInt, order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
     val result = ByteArray(size =  length.toInt())
     val end = length.toInt() - 1
     val range : IntProgression = if (order == LITTLE_ENDIAN) 0..end else IntProgression.fromClosedRange (end, 0, -1)
@@ -203,15 +210,15 @@ fun byteArrayOf(value: UInt, length: UInt, order : ByteOrder = LITTLE_ENDIAN) : 
 }
 
 fun UInt.asUInt16(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    return byteArrayOf(this, 2u, order)
+    return byteArrayOf(this.toULong(), 2u, order)
 }
 
 fun UInt.asUInt24(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    return byteArrayOf(this, 3u, order)
+    return byteArrayOf(this.toULong(), 3u, order)
 }
 
 fun UInt.asUInt32(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    return byteArrayOf(this, 4u, order)
+    return byteArrayOf(this.toULong(), 4u, order)
 }
 
 fun Int.asInt16(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
@@ -227,7 +234,11 @@ fun Int.asInt32(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
 }
 
 fun byteArrayOf(value: Int, length: UInt, order : ByteOrder) : ByteArray {
-    return byteArrayOf(intToSignedBits(value, length.toInt() * 8).toUInt(), length, order)
+    return byteArrayOf(intToSignedBits(value, length.toInt() * 8).toULong(), length, order)
+}
+
+fun byteArrayOf(value: Long, length: UInt, order : ByteOrder) : ByteArray {
+    return byteArrayOf(longToSignedBits(value, length.toInt() * 8).toULong(), length, order)
 }
 
 fun byteArrayOf(value: Double, length: UInt, precision: Int, order : ByteOrder = LITTLE_ENDIAN) : ByteArray {

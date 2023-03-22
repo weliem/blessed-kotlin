@@ -436,6 +436,14 @@ class ByteArrayExtenstionsTest {
     }
 
     @Test
+    fun test_create_uint48_be() {
+        assertEquals(254021126842119u, byteArrayOf(254021126842119u, 6u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
+//        assertEquals(518119u, byteArrayOf(518119u, 3u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
+//        assertEquals(15140615u, byteArrayOf(15140615u, 3u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
+//        assertEquals(16777215u, byteArrayOf(16777215u, 3u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
+    }
+
+    @Test
     fun test_create_sfloat() {
         assertEquals(204.2, byteArrayOf(204.2, 2u, 1, BIG_ENDIAN).getSFloat(order = BIG_ENDIAN), 0.1)
         assertEquals(204.2, byteArrayOf(204.2, 2u, 1, LITTLE_ENDIAN).getSFloat(order = LITTLE_ENDIAN), 0.1)
@@ -450,6 +458,7 @@ class ByteArrayExtenstionsTest {
         assertEquals(-20678.42, byteArrayOf(-20678.42, 4u, 2, BIG_ENDIAN).getFloat(order = BIG_ENDIAN), 0.01)
         assertEquals(-20678.42, byteArrayOf(-20678.42, 4u, 2, LITTLE_ENDIAN).getFloat(order = LITTLE_ENDIAN), 0.01)
     }
+
 
     // TODO - 48 bit & 64 bit
 }
