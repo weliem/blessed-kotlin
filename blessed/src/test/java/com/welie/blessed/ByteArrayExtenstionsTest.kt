@@ -436,13 +436,44 @@ class ByteArrayExtenstionsTest {
     }
 
     @Test
+    fun test_create_uint48_le() {
+        assertEquals(8688851421159u, byteArrayOf(8688851421159u, 6u, LITTLE_ENDIAN).getUInt48(order = LITTLE_ENDIAN))
+        assertEquals(254021126842119u, byteArrayOf(254021126842119u, 6u, LITTLE_ENDIAN).getUInt48(order = LITTLE_ENDIAN))
+        assertEquals(254983214196711u, byteArrayOf(254983214196711u, 6u, LITTLE_ENDIAN).getUInt48(order = LITTLE_ENDIAN))
+        assertEquals(281474976710655u, byteArrayOf(281474976710655u, 6u, LITTLE_ENDIAN).getUInt48(order = LITTLE_ENDIAN))
+    }
+    @Test
     fun test_create_uint48_be() {
+        assertEquals(8688851421159u, byteArrayOf(8688851421159u, 6u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
         assertEquals(254021126842119u, byteArrayOf(254021126842119u, 6u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
-//        assertEquals(518119u, byteArrayOf(518119u, 3u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
-//        assertEquals(15140615u, byteArrayOf(15140615u, 3u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
-//        assertEquals(16777215u, byteArrayOf(16777215u, 3u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
+        assertEquals(254983214196711u, byteArrayOf(254983214196711u, 6u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
+        assertEquals(281474976710655u, byteArrayOf(281474976710655u, 6u, BIG_ENDIAN).getUInt48(order = BIG_ENDIAN))
     }
 
+    @Test
+    fun test_create_int48_le() {
+        assertEquals(-27453849868537, byteArrayOf(-27453849868537, 6u, LITTLE_ENDIAN).getInt48(order = LITTLE_ENDIAN))
+        assertEquals(8688851421159, byteArrayOf(8688851421159, 6u, LITTLE_ENDIAN).getInt48(order = LITTLE_ENDIAN))
+        assertEquals(-26491762513945, byteArrayOf(-26491762513945, 6u, LITTLE_ENDIAN).getInt48(order = LITTLE_ENDIAN))
+        assertEquals(-1, byteArrayOf(-1, 6u, LITTLE_ENDIAN).getInt48(order = LITTLE_ENDIAN))
+        assertEquals(-1, byteArrayOf((-1).toLong(), 6u, LITTLE_ENDIAN).getInt48(order = LITTLE_ENDIAN))
+    }
+
+    @Test
+    fun test_uint48_ext() {
+        assertArrayEquals(8688851421159u.asUInt48(LITTLE_ENDIAN), byteArrayOf(8688851421159u, 6u, LITTLE_ENDIAN))
+        assertArrayEquals(8688851421159u.asUInt48(BIG_ENDIAN), byteArrayOf(8688851421159u, 6u, BIG_ENDIAN))
+    }
+
+    @Test
+    fun test_int48_ext() {
+        assertArrayEquals(8688851421159.asInt48(LITTLE_ENDIAN), byteArrayOf(8688851421159, 6u, LITTLE_ENDIAN))
+        assertArrayEquals(8688851421159.asInt48(BIG_ENDIAN), byteArrayOf(8688851421159, 6u, BIG_ENDIAN))
+        assertArrayEquals((-8688851421159).asInt48(LITTLE_ENDIAN), byteArrayOf(-8688851421159, 6u, LITTLE_ENDIAN))
+        assertArrayEquals((-8688851421159).asInt48(BIG_ENDIAN), byteArrayOf(-8688851421159, 6u, BIG_ENDIAN))
+    }
+
+    // Create SFloat and Float
     @Test
     fun test_create_sfloat() {
         assertEquals(204.2, byteArrayOf(204.2, 2u, 1, BIG_ENDIAN).getSFloat(order = BIG_ENDIAN), 0.1)
@@ -460,5 +491,5 @@ class ByteArrayExtenstionsTest {
     }
 
 
-    // TODO - 48 bit & 64 bit
+    // TODO - 64 bit
 }

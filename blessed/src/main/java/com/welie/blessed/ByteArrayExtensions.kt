@@ -22,7 +22,7 @@ fun ByteArray.formatHexBytes(separator: String?): String {
     return resultString
 }
 
-fun ByteArray.asHexString() : String {
+fun ByteArray.asHexString(): String {
     return this.formatHexBytes(null)
 }
 
@@ -33,11 +33,11 @@ fun ByteArray.asHexString() : String {
 private fun unsignedToSigned(unsigned: UInt, size: UInt): Int {
     if (size > 24u) throw IllegalArgumentException("size too large")
 
-    val signBit : UInt = (1u shl ((size - 1u).toInt()))
+    val signBit: UInt = (1u shl ((size - 1u).toInt()))
     if (unsigned and signBit != 0u) {
         // Convert to a negative value
         val nonsignedPart = (unsigned and (signBit - 1u))
-        return  -1 * (signBit - nonsignedPart).toInt()
+        return -1 * (signBit - nonsignedPart).toInt()
     }
     return unsigned.toInt()
 }
@@ -49,11 +49,11 @@ private fun unsignedToSigned(unsigned: UInt, size: UInt): Int {
 private fun unsignedToSigned(unsigned: ULong, size: ULong): Long {
     if (size > 56u) throw IllegalArgumentException("size too large")
 
-    val signBit : ULong = (1uL shl ((size - 1uL).toInt()))
+    val signBit: ULong = (1uL shl ((size - 1uL).toInt()))
     if (unsigned and signBit != 0uL) {
         // Convert to a negative value
         val nonsignedPart = (unsigned and (signBit - 1u))
-        return  -1 * (signBit - nonsignedPart).toLong()
+        return -1 * (signBit - nonsignedPart).toLong()
     }
     return unsigned.toLong()
 }
@@ -62,7 +62,9 @@ private fun unsignedToSigned(unsigned: ULong, size: ULong): Long {
  * Convert an integer into the signed bits of a given length.
  */
 private fun intToSignedBits(value: Int, size: Int): Int {
-    val mask = if(size < 32) { (1 shl (size - 1)) - 1 } else Int.MAX_VALUE
+    val mask = if (size < 32) {
+        (1 shl (size - 1)) - 1
+    } else Int.MAX_VALUE
     return if (value < 0) {
         (1 shl size - 1) + (value and (1 shl size - 1) - 1)
     } else {
@@ -75,9 +77,11 @@ private fun intToSignedBits(value: Int, size: Int): Int {
 }
 
 private fun longToSignedBits(value: Long, size: Int): Long {
-    val mask = if(size < 64) { (1.toLong() shl (size - 1)) - 1 } else Long.MAX_VALUE
+    val mask = if (size < 64) {
+        (1.toLong() shl (size - 1)) - 1
+    } else Long.MAX_VALUE
     return if (value < 0) {
-        (1 shl size - 1) + (value and (1.toLong() shl size - 1) - 1)
+        (1.toLong() shl size - 1) + (value and (1.toLong() shl size - 1) - 1)
     } else {
         if (value > mask) {
             throw IllegalArgumentException("Integer too large")
@@ -96,13 +100,13 @@ private fun longToSignedBits(value: Long, size: Int): Long {
  *
  * @return an unsigned long value calculated from the byte array
  */
-fun ByteArray.getULong(offset: UInt = 0u, length: UInt, order: ByteOrder) : ULong {
+fun ByteArray.getULong(offset: UInt = 0u, length: UInt, order: ByteOrder): ULong {
     if (length == 0u) throw IllegalArgumentException("length must not be zero")
 
     val start = offset.toInt()
     val end = start + length.toInt() - 1
-    val range : IntProgression = if (order == LITTLE_ENDIAN) IntProgression.fromClosedRange (end, start, -1) else start..end
-    var result : ULong = 0u
+    val range: IntProgression = if (order == LITTLE_ENDIAN) IntProgression.fromClosedRange(end, start, -1) else start..end
+    var result: ULong = 0u
     for (i in range) {
         if (i != range.first) {
             result = result shl 8
@@ -112,71 +116,71 @@ fun ByteArray.getULong(offset: UInt = 0u, length: UInt, order: ByteOrder) : ULon
     return result
 }
 
-fun ByteArray.getUInt8(offset: UInt = 0u) : UInt {
+fun ByteArray.getUInt8(offset: UInt = 0u): UInt {
     return (this[offset.toInt()].toInt() and 0xFF).toUInt()
 }
 
-fun ByteArray.getInt8(offset : UInt = 0u) : Int {
+fun ByteArray.getInt8(offset: UInt = 0u): Int {
     return this[offset.toInt()].toInt()
 }
 
-fun ByteArray.getUInt16(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : UInt {
+fun ByteArray.getUInt16(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): UInt {
     return getULong(offset = offset, length = 2u, order = order).toUInt()
 }
 
-fun ByteArray.getInt16(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : Int {
+fun ByteArray.getInt16(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Int {
     return unsignedToSigned(getULong(offset = offset, length = 2u, order = order).toUInt(), 16u)
 }
 
-fun ByteArray.getUInt24(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : UInt {
+fun ByteArray.getUInt24(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): UInt {
     return getULong(offset = offset, length = 3u, order = order).toUInt()
 }
 
-fun ByteArray.getInt24(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : Int {
+fun ByteArray.getInt24(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Int {
     return unsignedToSigned(getULong(offset = offset, length = 3u, order = order).toUInt(), 24u)
 }
 
-fun ByteArray.getUInt32(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : UInt {
+fun ByteArray.getUInt32(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): UInt {
     return getULong(offset = offset, length = 4u, order = order).toUInt()
 }
 
-fun ByteArray.getInt32(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : Int {
+fun ByteArray.getInt32(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Int {
     return getULong(offset = offset, length = 4u, order = order).toInt()
 }
 
-fun ByteArray.getUInt48(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : ULong {
+fun ByteArray.getUInt48(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): ULong {
     return getULong(offset = offset, length = 6u, order = order)
 }
 
-fun ByteArray.getInt48(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : Long {
+fun ByteArray.getInt48(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Long {
     return unsignedToSigned(getULong(offset = offset, length = 6u, order = order), 48uL)
 }
 
-fun ByteArray.geUInt64(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : ULong {
+fun ByteArray.geUInt64(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): ULong {
     return getULong(offset = offset, length = 8u, order = order)
 }
 
-fun ByteArray.geInt64(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : Long {
+fun ByteArray.geInt64(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Long {
     return getULong(offset = offset, length = 8u, order = order).toLong()
 }
 
-fun ByteArray.getSFloat(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : Double {
+fun ByteArray.getSFloat(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Double {
     val uint16 = getUInt16(offset = offset, order = order)
-    val mantissa = unsignedToSigned( uint16 and 0x0FFFu, 12u)
+    val mantissa = unsignedToSigned(uint16 and 0x0FFFu, 12u)
     val exponent = unsignedToSigned(uint16 shr 12, 4u)
 
     return mantissa.toDouble() * 10.0.pow(exponent)
 }
 
-fun ByteArray.getFloat(offset : UInt = 0u, order: ByteOrder = LITTLE_ENDIAN) : Double {
+fun ByteArray.getFloat(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Double {
     val uint32 = getUInt32(offset = offset, order = order)
-    val mantissa = unsignedToSigned( uint32 and 0x00FFFFFFu, 24u)
+    val mantissa = unsignedToSigned(uint32 and 0x00FFFFFFu, 24u)
     val exponent = unsignedToSigned(uint32 shr 24, 8u)
 
     return mantissa.toDouble() * 10.0.pow(exponent)
 }
 
-fun ByteArray.getDateTime(offset : UInt = 0u) : Date {
+fun ByteArray.getDateTime(offset: UInt = 0u): Date {
     val year = getUInt16(offset, LITTLE_ENDIAN)
     val month = getUInt8(offset + 2u)
     val day = getUInt8(offset + 3u)
@@ -187,7 +191,7 @@ fun ByteArray.getDateTime(offset : UInt = 0u) : Date {
     return calendar.time
 }
 
-fun ByteArray.getString(offset: UInt = 0u) : String {
+fun ByteArray.getString(offset: UInt = 0u): String {
     var firstZero = offset.toInt()
     while (firstZero < this.size && this[firstZero].toInt() != 0) firstZero++
 
@@ -195,10 +199,11 @@ fun ByteArray.getString(offset: UInt = 0u) : String {
     return String(this, offset.toInt(), length, StandardCharsets.ISO_8859_1).trim()
 }
 
-fun byteArrayOf(value: ULong, length: UInt, order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    val result = ByteArray(size =  length.toInt())
+fun byteArrayOf(value: ULong, length: UInt, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    require(length <= 8u) { "Length must be <= 8u" }
+    val result = ByteArray(size = length.toInt())
     val end = length.toInt() - 1
-    val range : IntProgression = if (order == LITTLE_ENDIAN) 0..end else IntProgression.fromClosedRange (end, 0, -1)
+    val range: IntProgression = if (order == LITTLE_ENDIAN) 0..end else IntProgression.fromClosedRange(end, 0, -1)
     for (i in range) {
         if (i == range.first) {
             result[i] = value.toByte()
@@ -209,40 +214,59 @@ fun byteArrayOf(value: ULong, length: UInt, order : ByteOrder = LITTLE_ENDIAN) :
     return result
 }
 
-fun UInt.asUInt16(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    return byteArrayOf(this.toULong(), 2u, order)
-}
-
-fun UInt.asUInt24(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    return byteArrayOf(this.toULong(), 3u, order)
-}
-
-fun UInt.asUInt32(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    return byteArrayOf(this.toULong(), 4u, order)
-}
-
-fun Int.asInt16(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
+fun UInt.asUInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 2u, order)
 }
 
-fun Int.asInt24(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
+fun UInt.asUInt24(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 3u, order)
 }
 
-fun Int.asInt32(order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
+fun UInt.asUInt32(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 4u, order)
 }
 
-fun byteArrayOf(value: Int, length: UInt, order : ByteOrder) : ByteArray {
-    return byteArrayOf(intToSignedBits(value, length.toInt() * 8).toULong(), length, order)
+fun ULong.asUInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 6u, order)
 }
 
-fun byteArrayOf(value: Long, length: UInt, order : ByteOrder) : ByteArray {
+fun Int.asInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 2u, order)
+}
+
+fun Int.asInt24(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 3u, order)
+}
+
+fun Int.asInt32(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 4u, order)
+}
+
+fun Long.asInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 6u, order)
+}
+
+fun byteArrayOf(value: Int, length: UInt, order: ByteOrder): ByteArray {
+    if (length <= 4u) {
+        return byteArrayOf(intToSignedBits(value, length.toInt() * 8).toULong(), length, order)
+    } else if (length <= 8u) {
+        return byteArrayOf(value.toLong(), length, order)
+    }
+    throw IllegalArgumentException("Length must be <= 8u")
+}
+
+fun byteArrayOf(value: UInt, length: UInt, order: ByteOrder): ByteArray {
+    require(length <= 8u) { "Length must be <= 8u" }
+    return byteArrayOf(value.toULong(), length, order)
+}
+
+fun byteArrayOf(value: Long, length: UInt, order: ByteOrder): ByteArray {
+    require(length <= 8u) { "Length must be <= 8u" }
     return byteArrayOf(longToSignedBits(value, length.toInt() * 8).toULong(), length, order)
 }
 
-fun byteArrayOf(value: Double, length: UInt, precision: Int, order : ByteOrder = LITTLE_ENDIAN) : ByteArray {
-    val result = ByteArray(size =  length.toInt())
+fun byteArrayOf(value: Double, length: UInt, precision: Int, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    val result = ByteArray(size = length.toInt())
     val mantissa = (value * 10.0.pow(precision)).toInt()
     val exponent = -precision
 
@@ -256,7 +280,7 @@ fun byteArrayOf(value: Double, length: UInt, precision: Int, order : ByteOrder =
             result[0] = ((localMantissa shr 8 and 0x0F) + ((localExponent and 0x0F) shl 4)).toByte()
             result[1] = (localMantissa and 0xFF).toByte()
         }
-    } else if(length == 4u) {
+    } else if (length == 4u) {
         val localMantissa = intToSignedBits(mantissa, 24)
         val localExponent = intToSignedBits(exponent, 8)
         var index = 0
@@ -271,6 +295,8 @@ fun byteArrayOf(value: Double, length: UInt, precision: Int, order : ByteOrder =
             result[index++] = (localMantissa shr 8 and 0xFF).toByte()
             result[index] = (localMantissa and 0xFF).toByte()
         }
+    } else {
+        throw IllegalArgumentException("Length can only be 2u or 4u")
     }
     return result
 }
