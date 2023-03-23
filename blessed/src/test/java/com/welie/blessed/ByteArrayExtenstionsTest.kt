@@ -208,38 +208,38 @@ class ByteArrayExtenstionsTest {
 
     @Test
     fun test_uint64_le() {
-        assertEquals(506381209866536711u, byteArrayOf("0707070707070707").geUInt64(0u, LITTLE_ENDIAN))
-        assertEquals(16647528568725169927u, byteArrayOf("07E707E707E707E7").geUInt64(0u, LITTLE_ENDIAN))
-        assertEquals(569432566737078247u, byteArrayOf("E707E707E707E707").geUInt64(0u, LITTLE_ENDIAN))
-        assertEquals(16710579925595711463u, byteArrayOf("E7E7E7E7E7E7E7E7").geUInt64(0u, LITTLE_ENDIAN))
-        assertEquals(18446744073709551615u, byteArrayOf("FFFFFFFFFFFFFFFF").geUInt64(0u, LITTLE_ENDIAN))
+        assertEquals(506381209866536711u, byteArrayOf("0707070707070707").getUInt64(0u, LITTLE_ENDIAN))
+        assertEquals(16647528568725169927u, byteArrayOf("07E707E707E707E7").getUInt64(0u, LITTLE_ENDIAN))
+        assertEquals(569432566737078247u, byteArrayOf("E707E707E707E707").getUInt64(0u, LITTLE_ENDIAN))
+        assertEquals(16710579925595711463u, byteArrayOf("E7E7E7E7E7E7E7E7").getUInt64(0u, LITTLE_ENDIAN))
+        assertEquals(18446744073709551615u, byteArrayOf("FFFFFFFFFFFFFFFF").getUInt64(0u, LITTLE_ENDIAN))
     }
 
     @Test
     fun test_uint64_be() {
-        assertEquals(506381209866536711u, byteArrayOf("0707070707070707").geUInt64(0u, BIG_ENDIAN))
-        assertEquals(569432566737078247u, byteArrayOf("07E707E707E707E7").geUInt64(0u, BIG_ENDIAN))
-        assertEquals(16647528568725169927u, byteArrayOf("E707E707E707E707").geUInt64(0u, BIG_ENDIAN))
-        assertEquals(16710579925595711463u, byteArrayOf("E7E7E7E7E7E7E7E7").geUInt64(0u, BIG_ENDIAN))
-        assertEquals(18446744073709551615u, byteArrayOf("FFFFFFFFFFFFFFFF").geUInt64(0u, BIG_ENDIAN))
+        assertEquals(506381209866536711u, byteArrayOf("0707070707070707").getUInt64(0u, BIG_ENDIAN))
+        assertEquals(569432566737078247u, byteArrayOf("07E707E707E707E7").getUInt64(0u, BIG_ENDIAN))
+        assertEquals(16647528568725169927u, byteArrayOf("E707E707E707E707").getUInt64(0u, BIG_ENDIAN))
+        assertEquals(16710579925595711463u, byteArrayOf("E7E7E7E7E7E7E7E7").getUInt64(0u, BIG_ENDIAN))
+        assertEquals(18446744073709551615u, byteArrayOf("FFFFFFFFFFFFFFFF").getUInt64(0u, BIG_ENDIAN))
     }
 
     @Test
-    fun test_sint64_le() {
-        assertEquals(506381209866536711, byteArrayOf("0707070707070707").geInt64(0u, LITTLE_ENDIAN))
-        assertEquals(-1799215504984381689, byteArrayOf("07E707E707E707E7").geInt64(0u, LITTLE_ENDIAN))
-        assertEquals(569432566737078247, byteArrayOf("E707E707E707E707").geInt64(0u, LITTLE_ENDIAN))
-        assertEquals(-1736164148113840153, byteArrayOf("E7E7E7E7E7E7E7E7").geInt64(0u, LITTLE_ENDIAN))
-        assertEquals(-1, byteArrayOf("FFFFFFFFFFFFFFFF").geInt64(0u, LITTLE_ENDIAN))
+    fun test_int64_le() {
+        assertEquals(506381209866536711, byteArrayOf("0707070707070707").getInt64(0u, LITTLE_ENDIAN))
+        assertEquals(-1799215504984381689, byteArrayOf("07E707E707E707E7").getInt64(0u, LITTLE_ENDIAN))
+        assertEquals(569432566737078247, byteArrayOf("E707E707E707E707").getInt64(0u, LITTLE_ENDIAN))
+        assertEquals(-1736164148113840153, byteArrayOf("E7E7E7E7E7E7E7E7").getInt64(0u, LITTLE_ENDIAN))
+        assertEquals(-1, byteArrayOf("FFFFFFFFFFFFFFFF").getInt64(0u, LITTLE_ENDIAN))
     }
 
     @Test
-    fun test_sint64_be() {
-        assertEquals(506381209866536711, byteArrayOf("0707070707070707").geInt64(0u, BIG_ENDIAN))
-        assertEquals(569432566737078247, byteArrayOf("07E707E707E707E7").geInt64(0u, BIG_ENDIAN))
-        assertEquals(-1799215504984381689, byteArrayOf("E707E707E707E707").geInt64(0u, BIG_ENDIAN))
-        assertEquals(-1736164148113840153, byteArrayOf("E7E7E7E7E7E7E7E7").geInt64(0u, BIG_ENDIAN))
-        assertEquals(-1, byteArrayOf("FFFFFFFFFFFFFFFF").geInt64(0u, BIG_ENDIAN))
+    fun test_int64_be() {
+        assertEquals(506381209866536711, byteArrayOf("0707070707070707").getInt64(0u, BIG_ENDIAN))
+        assertEquals(569432566737078247, byteArrayOf("07E707E707E707E7").getInt64(0u, BIG_ENDIAN))
+        assertEquals(-1799215504984381689, byteArrayOf("E707E707E707E707").getInt64(0u, BIG_ENDIAN))
+        assertEquals(-1736164148113840153, byteArrayOf("E7E7E7E7E7E7E7E7").getInt64(0u, BIG_ENDIAN))
+        assertEquals(-1, byteArrayOf("FFFFFFFFFFFFFFFF").getInt64(0u, BIG_ENDIAN))
     }
 
     // Floats
@@ -473,6 +473,39 @@ class ByteArrayExtenstionsTest {
         assertArrayEquals((-8688851421159).asInt48(BIG_ENDIAN), byteArrayOf(-8688851421159, 6u, BIG_ENDIAN))
     }
 
+    // Create 64-bit
+
+    @Test
+    fun test_create_uint64_le() {
+        assertEquals(506381209866536711u, byteArrayOf(506381209866536711u, 8u, LITTLE_ENDIAN).getUInt64(order = LITTLE_ENDIAN))
+        assertEquals(569432566737078247u, byteArrayOf(569432566737078247u, 8u, LITTLE_ENDIAN).getUInt64(order = LITTLE_ENDIAN))
+        assertEquals(16647528568725169927u, byteArrayOf(16647528568725169927u, 8u, LITTLE_ENDIAN).getUInt64(order = LITTLE_ENDIAN))
+        assertEquals(18446744073709551615u, byteArrayOf(18446744073709551615u, 8u, LITTLE_ENDIAN).getUInt64(order = LITTLE_ENDIAN))
+    }
+    @Test
+    fun test_create_uint64_be() {
+        assertEquals(506381209866536711u, byteArrayOf(506381209866536711u, 8u, BIG_ENDIAN).getUInt64(order = BIG_ENDIAN))
+        assertEquals(569432566737078247u, byteArrayOf(569432566737078247u, 8u, BIG_ENDIAN).getUInt64(order = BIG_ENDIAN))
+        assertEquals(16647528568725169927u, byteArrayOf(16647528568725169927u, 8u, BIG_ENDIAN).getUInt64(order = BIG_ENDIAN))
+        assertEquals(18446744073709551615u, byteArrayOf(18446744073709551615u, 8u, BIG_ENDIAN).getUInt64(order = BIG_ENDIAN))
+    }
+
+    @Test
+    fun test_create_int64_le() {
+        assertEquals(506381209866536711, byteArrayOf(506381209866536711, 8u, LITTLE_ENDIAN).getInt64(order = LITTLE_ENDIAN))
+        assertEquals(569432566737078247, byteArrayOf(569432566737078247, 8u, LITTLE_ENDIAN).getInt64(order = LITTLE_ENDIAN))
+        assertEquals(-1799215504984381689, byteArrayOf(-1799215504984381689, 8u, LITTLE_ENDIAN).getInt64(order = LITTLE_ENDIAN))
+        assertEquals((-1).toLong(), byteArrayOf((-1).toLong(), 8u, LITTLE_ENDIAN).getInt64(order = LITTLE_ENDIAN))
+    }
+
+    @Test
+    fun test_create_int64_be() {
+        assertEquals(506381209866536711, byteArrayOf(506381209866536711, 8u, BIG_ENDIAN).getInt64(order = BIG_ENDIAN))
+        assertEquals(569432566737078247, byteArrayOf(569432566737078247, 8u, BIG_ENDIAN).getInt64(order = BIG_ENDIAN))
+        assertEquals(-1799215504984381689, byteArrayOf(-1799215504984381689, 8u, BIG_ENDIAN).getInt64(order = BIG_ENDIAN))
+        assertEquals((-1).toLong(), byteArrayOf((-1).toLong(), 8u, BIG_ENDIAN).getInt64(order = BIG_ENDIAN))
+    }
+
     // Create SFloat and Float
     @Test
     fun test_create_sfloat() {
@@ -490,6 +523,13 @@ class ByteArrayExtenstionsTest {
         assertEquals(-20678.42, byteArrayOf(-20678.42, 4u, 2, LITTLE_ENDIAN).getFloat(order = LITTLE_ENDIAN), 0.01)
     }
 
+    @Test
+    fun test_merge_arrays() {
+        val a = byteArrayOf("01020304")
+        val b = byteArrayOf("05")
+        val c = byteArrayOf("0607080910")
+        val merged = mergeArrays(a, b, c)
 
-    // TODO - 64 bit
+        assertEquals("01020304050607080910", merged.asHexString())
+    }
 }

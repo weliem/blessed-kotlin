@@ -156,11 +156,11 @@ fun ByteArray.getInt48(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Lon
     return unsignedToSigned(getULong(offset = offset, length = 6u, order = order), 48uL)
 }
 
-fun ByteArray.geUInt64(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): ULong {
+fun ByteArray.getUInt64(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): ULong {
     return getULong(offset = offset, length = 8u, order = order)
 }
 
-fun ByteArray.geInt64(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Long {
+fun ByteArray.getInt64(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Long {
     return getULong(offset = offset, length = 8u, order = order).toLong()
 }
 
