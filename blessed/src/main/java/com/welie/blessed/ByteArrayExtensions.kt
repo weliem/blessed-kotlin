@@ -65,6 +65,7 @@ private fun intToSignedBits(value: Int, size: Int): Int {
     val mask = if (size < 32) {
         (1 shl (size - 1)) - 1
     } else Int.MAX_VALUE
+
     return if (value < 0) {
         (1 shl size - 1) + (value and (1 shl size - 1) - 1)
     } else {
@@ -80,6 +81,7 @@ private fun longToSignedBits(value: Long, size: Int): Long {
     val mask = if (size < 64) {
         (1.toLong() shl (size - 1)) - 1
     } else Long.MAX_VALUE
+
     return if (value < 0) {
         (1.toLong() shl size - 1) + (value and (1.toLong() shl size - 1) - 1)
     } else {
@@ -230,6 +232,10 @@ fun ULong.asUInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 6u, order)
 }
 
+fun ULong.asUInt64(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 8u, order)
+}
+
 fun Int.asInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 2u, order)
 }
@@ -244,6 +250,18 @@ fun Int.asInt32(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
 
 fun Long.asInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 6u, order)
+}
+
+fun Long.asInt64(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 8u, order)
+}
+
+fun Double.asSFloat(precision: Int, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 2u, precision, order)
+}
+
+fun Double.asFloat(precision: Int, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 4u, precision, order)
 }
 
 fun byteArrayOf(value: Int, length: UInt, order: ByteOrder): ByteArray {

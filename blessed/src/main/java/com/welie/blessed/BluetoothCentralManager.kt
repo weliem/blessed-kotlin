@@ -48,9 +48,6 @@ import java.util.concurrent.ConcurrentHashMap
 @SuppressLint("MissingPermission")
 @Suppress("unused")
 class BluetoothCentralManager(private val context: Context, private val bluetoothCentralManagerCallback: BluetoothCentralManagerCallback, private val callBackHandler: Handler) {
-//    private val context: Context
-//    private val callBackHandler: Handler
-
     private val bluetoothAdapter: BluetoothAdapter
 
     @Volatile
@@ -919,16 +916,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
         }
     }
 
-    init {
-        val manager = requireNotNull(context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager) { "cannot get BluetoothManager" }
-        bluetoothAdapter = requireNotNull(manager.adapter) { "no bluetooth adapter found" }
-        autoConnectScanSettings = getScanSettings(ScanMode.LOW_POWER)
-        scanSettings = getScanSettings(ScanMode.LOW_LATENCY)
 
-        // Register for broadcasts on BluetoothAdapter state change
-        val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
-        context.registerReceiver(adapterStateReceiver, filter)
-    }
 
     private fun handleAdapterState(state: Int) {
         when (state) {
@@ -984,6 +972,17 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             }
             BluetoothAdapter.STATE_TURNING_ON -> Logger.d(TAG, "bluetooth turning on")
         }
+    }
+
+    init {
+        val manager = requireNotNull(context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager) { "cannot get BluetoothManager" }
+        bluetoothAdapter = requireNotNull(manager.adapter) { "no bluetooth adapter found" }
+        autoConnectScanSettings = getScanSettings(ScanMode.LOW_POWER)
+        scanSettings = getScanSettings(ScanMode.LOW_LATENCY)
+
+        // Register for broadcasts on BluetoothAdapter state change
+        val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
+        context.registerReceiver(adapterStateReceiver, filter)
     }
 
     companion object {

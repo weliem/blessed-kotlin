@@ -506,6 +506,20 @@ class ByteArrayExtenstionsTest {
         assertEquals((-1).toLong(), byteArrayOf((-1).toLong(), 8u, BIG_ENDIAN).getInt64(order = BIG_ENDIAN))
     }
 
+    @Test
+    fun test_uint64_ext() {
+        assertArrayEquals(506381209866536711u.asUInt64(LITTLE_ENDIAN), byteArrayOf(506381209866536711u, 8u, LITTLE_ENDIAN))
+        assertArrayEquals(506381209866536711u.asUInt64(BIG_ENDIAN), byteArrayOf(506381209866536711u, 8u, BIG_ENDIAN))
+    }
+
+    @Test
+    fun test_int64_ext() {
+        assertArrayEquals(506381209866536711.asInt64(LITTLE_ENDIAN), byteArrayOf(506381209866536711, 8u, LITTLE_ENDIAN))
+        assertArrayEquals(506381209866536711.asInt64(BIG_ENDIAN), byteArrayOf(506381209866536711, 8u, BIG_ENDIAN))
+        assertArrayEquals((-506381209866536711).asInt64(LITTLE_ENDIAN), byteArrayOf(-506381209866536711, 8u, LITTLE_ENDIAN))
+        assertArrayEquals((-506381209866536711).asInt64(BIG_ENDIAN), byteArrayOf(-506381209866536711, 8u, BIG_ENDIAN))
+    }
+
     // Create SFloat and Float
     @Test
     fun test_create_sfloat() {
@@ -521,6 +535,22 @@ class ByteArrayExtenstionsTest {
         assertEquals(12204.27, byteArrayOf(12204.27, 4u, 2, LITTLE_ENDIAN).getFloat(order = LITTLE_ENDIAN), 0.01)
         assertEquals(-20678.42, byteArrayOf(-20678.42, 4u, 2, BIG_ENDIAN).getFloat(order = BIG_ENDIAN), 0.01)
         assertEquals(-20678.42, byteArrayOf(-20678.42, 4u, 2, LITTLE_ENDIAN).getFloat(order = LITTLE_ENDIAN), 0.01)
+    }
+
+    @Test
+    fun test_sfloat_ext() {
+        assertEquals(204.2, 204.2.asSFloat(1, LITTLE_ENDIAN).getSFloat(order = LITTLE_ENDIAN),  0.1)
+        assertEquals(204.2, 204.2.asSFloat(1, BIG_ENDIAN).getSFloat(order = BIG_ENDIAN),  0.1)
+        assertEquals(-20.42, -20.42.asSFloat(2, LITTLE_ENDIAN).getSFloat(order = LITTLE_ENDIAN),  0.01)
+        assertEquals(-20.42, -20.42.asSFloat(2, BIG_ENDIAN).getSFloat(order = BIG_ENDIAN),  0.01)
+    }
+
+    @Test
+    fun test_float_ext() {
+        assertEquals(12204.27, 12204.27.asFloat(2, LITTLE_ENDIAN).getFloat(order = LITTLE_ENDIAN),  0.01)
+        assertEquals(12204.27, 12204.27.asFloat(2, BIG_ENDIAN).getFloat(order = BIG_ENDIAN),  0.01)
+        assertEquals(-20678.42, -20678.42.asFloat(2, LITTLE_ENDIAN).getFloat(order = LITTLE_ENDIAN),  0.01)
+        assertEquals(-20678.42, -20678.42.asFloat(2, BIG_ENDIAN).getFloat(order = BIG_ENDIAN),  0.01)
     }
 
     @Test
