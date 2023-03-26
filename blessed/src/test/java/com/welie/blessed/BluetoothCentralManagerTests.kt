@@ -17,7 +17,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
-import org.junit.Assert.assertEquals
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,13 +27,13 @@ import org.robolectric.shadows.ShadowLooper
 
 @RunWith(RobolectricTestRunner::class)
 class BluetoothCentralManagerTests {
-    lateinit var central : BluetoothCentralManager
-    lateinit var callback : BluetoothCentralManagerCallback
-    lateinit var context : Context
-    lateinit var packageManager : PackageManager
-    lateinit var bluetoothManager : BluetoothManager
-    lateinit var bluetoothAdapter : BluetoothAdapter
-    lateinit var scanner : BluetoothLeScanner
+    lateinit var central: BluetoothCentralManager
+    lateinit var callback: BluetoothCentralManagerCallback
+    lateinit var context: Context
+    lateinit var packageManager: PackageManager
+    lateinit var bluetoothManager: BluetoothManager
+    lateinit var bluetoothAdapter: BluetoothAdapter
+    lateinit var scanner: BluetoothLeScanner
 
     private val broadcastReceiverSlot = slot<BroadcastReceiver>()
     private var broadcastReceiverCapturedList = mutableListOf<BroadcastReceiver>()
@@ -68,11 +68,11 @@ class BluetoothCentralManagerTests {
         }
 
         callback = mockk<BluetoothCentralManagerCallback>(relaxed = true)
-        central = BluetoothCentralManager(context, callback, Handler(Looper.getMainLooper()) )
+        central = BluetoothCentralManager(context, callback, Handler(Looper.getMainLooper()))
     }
 
     @Test
-    fun `When a scanForPeripherals is called, then a scan without filters is started `() {
+    fun `Given BLE is enabled, when a scanForPeripherals is called, then a scan without filters is started `() {
         // Given
         every { bluetoothAdapter.isEnabled } returns true
 
@@ -81,15 +81,29 @@ class BluetoothCentralManagerTests {
 
         // Then
         val filters = slot<List<ScanFilter>>()
-        verify { scanner.startScan(capture(filters), any(), any< ScanCallback>()) }
+        verify { scanner.startScan(capture(filters), any(), any<ScanCallback>()) }
         assertEquals(0, filters.captured.size)
+        assertTrue(central.isScanning)
+    }
+
+    @Test
+    fun `Given BLE is not enabled, when a scanForPeripherals is called, then no scan is started`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns false
+
+        // When
+        central.scanForPeripherals()
+
+        // Then
+        verify(exactly = 0) { scanner.startScan(any(), any(), any<ScanCallback>()) }
+        assertFalse(central.isScanning)
     }
 
     @Test
     fun `When an unfiltered scan is started, then ScanResults and Peripherals will be received`() {
         // Given
         val scanCallback = slot<ScanCallback>()
-        val device = getDevice()
+        val device = getDevice(address = DEVICE_ADDRESS)
         val scanResult = getScanResult(device)
         every { bluetoothAdapter.isEnabled } returns true
         every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS) } returns device
@@ -117,10 +131,10 @@ class BluetoothCentralManagerTests {
         return scanResult
     }
 
-    private fun getDevice(): BluetoothDevice {
+    private fun getDevice(address: String = DEVICE_ADDRESS, name: String = DEVICE_NAME): BluetoothDevice {
         val device = mockk<BluetoothDevice>()
-        every { device.address } returns DEVICE_ADDRESS
-        every { device.name } returns DEVICE_NAME
+        every { device.address } returns address
+        every { device.name } returns name
         return device
     }
 
