@@ -59,7 +59,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
 //    private val bluetoothCentralManagerCallback: BluetoothCentralManagerCallback
 
     private val connectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
-    public val unconnectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
+    val unconnectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
     private val scannedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
 
     private val reconnectPeripheralAddresses: MutableList<String> = ArrayList()
@@ -462,10 +462,12 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
                 Logger.w(TAG, "already connected to %s'", peripheral.address)
                 return
             }
+
             if (unconnectedPeripherals.containsKey(peripheral.address)) {
                 Logger.w(TAG, "already connecting to %s'", peripheral.address)
                 return
             }
+
             if (!bluetoothAdapter.isEnabled) {
                 Logger.e(TAG, CANNOT_CONNECT_TO_PERIPHERAL_BECAUSE_BLUETOOTH_IS_OFF)
                 return
@@ -476,6 +478,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             if (peripheral.isUncached) {
                 Logger.w(TAG, "peripheral with address '%s' is not in the Bluetooth cache, hence connection may fail", peripheral.address)
             }
+
             peripheral.peripheralCallback = peripheralCallback
             scannedPeripherals.remove(peripheral.address)
             unconnectedPeripherals[peripheral.address] = peripheral
