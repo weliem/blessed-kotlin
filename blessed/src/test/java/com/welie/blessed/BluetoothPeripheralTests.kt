@@ -12,6 +12,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -47,7 +48,7 @@ class BluetoothPeripheralTests {
     }
 
     @Test
-    fun `Given an unconnected device, when connect is called then a connection is attempted`() {
+    fun `Given an unconnected device, when connect is called, then a connection is attempted`() {
         // Given
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
 
@@ -61,7 +62,7 @@ class BluetoothPeripheralTests {
     }
 
     @Test
-    fun `Given an connecting device, when connect is called then a connection is not attempted`() {
+    fun `Given an connecting device, when connect is called, then a connection is not attempted`() {
         // Given
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
@@ -77,8 +78,111 @@ class BluetoothPeripheralTests {
     }
 
     @Test
-    fun `Given an connected device, when connect is called then a connection is not attempted`() {
+    fun `Given an connected device, when connect is called, then a connection is not attempted`() {
         // Given
+        connectPeripheral()
+
+        // When
+        peripheral.connect()
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify(exactly = 1) { device.connectGatt(context, false, any(), transport.value) }
+    }
+
+
+    @Test
+    fun `Given an unconnected device, when autoConnect is called, then a connection is attempted`() {
+        // Given
+        assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
+
+        // When
+        peripheral.autoConnect()
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { device.connectGatt(context, true, any(), transport.value) }
+        assertTrue(peripheral.getState() == ConnectionState.CONNECTING)
+    }
+
+    @Test
+    fun `Given a connected device, when cancelConnection is called, then the device is disconnected`() {
+        // Given
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.cancelConnection()
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.disconnect() }
+        assertTrue(peripheral.getState() == ConnectionState.DISCONNECTING)
+
+        // When
+        gattCallback.onConnectionStateChange(gatt, GattStatus.SUCCESS.value, ConnectionState.DISCONNECTED.value)
+
+        // Then
+        verify { gatt.close() }
+        assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
+    }
+
+    @Test
+    fun `Given a connecting device, when cancelConnection is called, then the device is disconnected`() {
+        // Given
+        peripheral.connect()
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // When
+        peripheral.cancelConnection()
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.disconnect() }
+        verify { gatt.close() }
+        assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
+    }
+
+    @Test
+    fun `Given an unconnected device, when cancelConnection is called, then nothing is done`() {
+        // Given
+        assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
+
+        // When
+        peripheral.cancelConnection()
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify(exactly = 0) { gatt.disconnect() }
+        verify(exactly = 0) { gatt.close() }
+    }
+
+    @Test
+    fun `When getAddress is called, the address of the device is returned`() {
+        assertEquals(device.address, peripheral.address)
+    }
+
+    @Test
+    fun `When getName is called, the name of the device is returned`() {
+        assertEquals(device.name, peripheral.name)
+    }
+
+    @Test
+    fun `Given a device with no name, when getName is called, then an empty string is returned`() {
+        every { device.name } returns null
+        assertEquals("", peripheral.name)
+    }
+
+    @Test
+    fun `Given a device with a name, when the name changes to null, then previous name is returned`() {
+        every { device.name } returns DEVICE_NAME
+        assertEquals(DEVICE_NAME, peripheral.name)
+
+        every { device.name } returns null
+        assertEquals(DEVICE_NAME, peripheral.name)
+    }
+
+
+    fun connectPeripheral() : BluetoothGattCallback {
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
@@ -87,13 +191,7 @@ class BluetoothPeripheralTests {
         verify { device.connectGatt(context, false, capture(gattCallback), transport.value) }
         gattCallback.captured.onConnectionStateChange(gatt, GattStatus.SUCCESS.value, ConnectionState.CONNECTED.value)
         assertTrue(peripheral.getState() == ConnectionState.CONNECTED)
-
-        // When
-        peripheral.connect()
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
-
-        // Then
-        verify(exactly = 1) { device.connectGatt(context, false, any(), transport.value) }
+        return gattCallback.captured
     }
 
     companion object {
