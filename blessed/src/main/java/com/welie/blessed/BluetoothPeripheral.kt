@@ -530,7 +530,7 @@ class BluetoothPeripheral internal constructor(
                 bluetoothGatt = try {
                     device.connectGatt(context, false, bluetoothGattCallback, BluetoothDevice.TRANSPORT_LE)
                 } catch (e: SecurityException) {
-                    Logger.d(TAG, "exception")
+                    Logger.d(TAG, "exception when calling connectGatt")
                     null
                 }
 
@@ -540,7 +540,7 @@ class BluetoothPeripheral internal constructor(
                 }
             }, DIRECT_CONNECTION_DELAY_IN_MS.toLong())
         } else {
-            Logger.e(TAG, "peripheral '%s' not yet disconnected, will not connect", name)
+            Logger.e(TAG, "peripheral '%s' not (yet) disconnected, will not connect", name)
         }
     }
 
