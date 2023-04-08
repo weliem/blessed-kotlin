@@ -21,12 +21,12 @@ import java.util.*
 @RunWith(RobolectricTestRunner::class)
 class BluetoothPeripheralTests {
 
-    private lateinit var peripheral : BluetoothPeripheral
-    private lateinit var context : Context
-    private lateinit var device : BluetoothDevice
-    private lateinit var gatt : BluetoothGatt
-    private lateinit var internalCallback : InternalCallback
-    private lateinit var peripheralCallback : BluetoothPeripheralCallback
+    private lateinit var peripheral: BluetoothPeripheral
+    private lateinit var context: Context
+    private lateinit var device: BluetoothDevice
+    private lateinit var gatt: BluetoothGatt
+    private lateinit var internalCallback: InternalCallback
+    private lateinit var peripheralCallback: BluetoothPeripheralCallback
     private val transport = Transport.LE
 
     @Before
@@ -266,6 +266,27 @@ class BluetoothPeripheralTests {
     }
 
     @Test
+    fun `Given a peripheral with a characteristic that supports both notifications and indications, when startNotify is called, then notifications are enabled`() {
+        // Given
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_NOTIFY or PROPERTY_INDICATE, 0)
+        val descriptor = BluetoothGattDescriptor(CCCD_UUID, 0)
+        service.addCharacteristic(characteristic)
+        characteristic.addDescriptor(descriptor)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.setCharacteristicNotification(characteristic, true) } returns true
+        connectPeripheral()
+
+        // When
+        peripheral.startNotify(SERVICE_UUID, CHAR_UUID)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.setCharacteristicNotification(characteristic, true) }
+        verify { gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+    }
+
+    @Test
     fun `Given a device with a characteristic supporting notifications, when stopNotify is called on it, then notifications are disabled`() {
         // Given
         val service = BluetoothGattService(SERVICE_UUID, 0)
@@ -291,6 +312,31 @@ class BluetoothPeripheralTests {
         // Then
         assertFalse(peripheral.isNotifying(characteristic))
         assertFalse(peripheral.getNotifyingCharacteristics().contains(characteristic))
+    }
+
+    @Test
+    fun `Given a device with a characteristic supporting notifications, when notifications are started, then notifications are received`() {
+        // Given
+        val bytes = byteArrayOf("0102030405")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_NOTIFY, 0)
+        val descriptor = BluetoothGattDescriptor(CCCD_UUID, 0)
+        service.addCharacteristic(characteristic)
+        characteristic.addDescriptor(descriptor)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.setCharacteristicNotification(characteristic, true) } returns true
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.startNotify(SERVICE_UUID, CHAR_UUID)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+        gattCallback.onDescriptorWrite(gatt, descriptor, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+        gattCallback.onCharacteristicChanged(gatt, characteristic, bytes)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS)}
     }
 
     @Test
@@ -349,7 +395,171 @@ class BluetoothPeripheralTests {
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
     }
 
-    fun connectPeripheral() : BluetoothGattCallback {
+    @Test
+    fun `Given a connected peripheral, when readCharacteristic is called twice, then the reads are done sequentially`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_READ, PERMISSION_READ)
+        service.addCharacteristic(characteristic)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.readCharacteristic(characteristic) }
+
+        // When
+        gattCallback.onCharacteristicRead(gatt, characteristic, bytes, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+        verify(exactly = 2) { gatt.readCharacteristic(characteristic) }
+
+        // When
+        gattCallback.onCharacteristicRead(gatt, characteristic, bytes, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify(exactly = 2) { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+    }
+
+    @Test
+    fun `Given a connected peripheral, when readCharacteristic is called twice, then the reads are done sequentially even when an error occurs`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_READ, PERMISSION_READ)
+        service.addCharacteristic(characteristic)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.readCharacteristic(characteristic) }
+
+        // When
+        gattCallback.onCharacteristicRead(gatt, characteristic, bytes, GattStatus.UNLIKELY_ERROR.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.UNLIKELY_ERROR) }
+        verify(exactly = 2) { gatt.readCharacteristic(characteristic) }
+
+        // When
+        gattCallback.onCharacteristicRead(gatt, characteristic, bytes, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+    }
+    @Test
+    fun `Given a peripheral with a writable-with-response characteristic, when writeCharacteristic is called, then the bytes are written`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_WRITE, PERMISSION_WRITE)
+        service.addCharacteristic(characteristic)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITH_RESPONSE)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.writeCharacteristic(characteristic, bytes, WriteType.WITH_RESPONSE.writeType) }
+
+        // When
+        gattCallback.onCharacteristicWrite(gatt, characteristic, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onCharacteristicWrite(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+    }
+
+    @Test
+    fun `Given a connected peripheral with a writable-without-response characteristic, when writeCharacteristic is called, then the bytes are written`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_WRITE_NO_RESPONSE, PERMISSION_WRITE)
+        service.addCharacteristic(characteristic)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITHOUT_RESPONSE)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.writeCharacteristic(characteristic, bytes, WriteType.WITHOUT_RESPONSE.writeType) }
+
+        // When
+        gattCallback.onCharacteristicWrite(gatt, characteristic, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onCharacteristicWrite(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+    }
+
+    @Test
+    fun `Given an unconnected peripheral with a writable-without-response characteristic, when writeCharacteristic is called, then nothing happens`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_WRITE_NO_RESPONSE, PERMISSION_WRITE)
+        service.addCharacteristic(characteristic)
+        every { gatt.getService(SERVICE_UUID) } returns service
+
+        // When
+        peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITHOUT_RESPONSE)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify(exactly = 0) { gatt.writeCharacteristic(characteristic, bytes, WriteType.WITHOUT_RESPONSE.writeType) }
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `Given an connected peripheral with a non-writable characteristic, when writeCharacteristic is called, then an exception is thrown`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_READ, PERMISSION_READ)
+        service.addCharacteristic(characteristic)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        connectPeripheral()
+
+        // When
+        peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITHOUT_RESPONSE)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `Given an connected peripheral with a writable characteristic, when writeCharacteristic is called with an empty ByteArray, then an exception is thrown`() {
+        // Given
+        val bytes = ByteArray(0)
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_WRITE_NO_RESPONSE, PERMISSION_WRITE)
+        service.addCharacteristic(characteristic)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        connectPeripheral()
+
+        // When
+        peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITHOUT_RESPONSE)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+    }
+
+    fun connectPeripheral(): BluetoothGattCallback {
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()

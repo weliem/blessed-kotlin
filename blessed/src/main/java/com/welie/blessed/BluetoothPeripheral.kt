@@ -836,7 +836,7 @@ class BluetoothPeripheral internal constructor(
      *
      * @param serviceUUID        the service UUID the characteristic belongs to
      * @param characteristicUUID the characteristic's UUID
-     * @return true if the operation was enqueued, false if the characteristic was not found
+     * @return true if the characteristic was found and the operation was enqueued, otherwise false
      * @throws IllegalArgumentException if the characteristic does not support reading
      */
     fun readCharacteristic(serviceUUID: UUID, characteristicUUID: UUID): Boolean {
@@ -847,8 +847,7 @@ class BluetoothPeripheral internal constructor(
     /**
      * Read the value of a characteristic.
      *
-     *
-     * [BluetoothPeripheralCallback.onCharacteristicUpdate]   will be triggered as a result of this call.
+     * [BluetoothPeripheralCallback.onCharacteristicUpdate] will be triggered as a result of this call.
      *
      * @param characteristic Specifies the characteristic to read.
      * @return true if the operation was enqueued, otherwise false
