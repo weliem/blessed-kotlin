@@ -155,6 +155,36 @@ class BluetoothPeripheralTests {
     }
 
     @Test
+    fun `Given an unconnected device, when it connects and bonding is not in progress, then services are discovered`() {
+        // Given
+        assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
+        every { device.bondState } returns BluetoothDevice.BOND_NONE
+
+        // When
+        val gattCallback = connectPeripheral()
+        gattCallback.onConnectionStateChange(gatt, HciStatus.SUCCESS.value, ConnectionState.CONNECTED.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.discoverServices() }
+    }
+
+    @Test
+    fun `Given an unconnected device, when it connects and bonding is in progress, then services are not discovered`() {
+        // Given
+        assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
+        every { device.bondState } returns BluetoothDevice.BOND_BONDING
+
+        // When
+        val gattCallback = connectPeripheral()
+        gattCallback.onConnectionStateChange(gatt, HciStatus.SUCCESS.value, ConnectionState.CONNECTED.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify(exactly = 0) { gatt.discoverServices() }
+    }
+
+    @Test
     fun `When getAddress is called, the address of the device is returned`() {
         assertEquals(device.address, peripheral.address)
     }
@@ -559,6 +589,60 @@ class BluetoothPeripheralTests {
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
     }
 
+    @Test
+    fun `Given a connected peripheral, when readDescriptor is called, then the descriptor is read`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_NOTIFY, PERMISSION_READ)
+        val descriptor = BluetoothGattDescriptor(CCCD_UUID, 0)
+        service.addCharacteristic(characteristic)
+        characteristic.addDescriptor(descriptor)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.readDescriptor(SERVICE_UUID, CHAR_UUID, CCCD_UUID)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.readDescriptor(descriptor) }
+
+        // When
+        gattCallback.onDescriptorRead(gatt, descriptor, GattStatus.SUCCESS.value, bytes)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onDescriptorRead(peripheral, bytes, descriptor, GattStatus.SUCCESS) }
+    }
+
+    @Test
+    fun `Given a connected peripheral, when writeDescriptor is called, then the descriptor is written`() {
+        // Given
+        val bytes = byteArrayOf("010203")
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_NOTIFY, PERMISSION_READ)
+        val descriptor = BluetoothGattDescriptor(DESCRIPTOR_UUID, 0)
+        service.addCharacteristic(characteristic)
+        characteristic.addDescriptor(descriptor)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.writeDescriptor(SERVICE_UUID, CHAR_UUID, DESCRIPTOR_UUID, bytes)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.writeDescriptor(descriptor, bytes) }
+
+        // When
+        gattCallback.onDescriptorWrite(gatt, descriptor, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onDescriptorWrite(peripheral, bytes, descriptor, GattStatus.SUCCESS) }
+    }
+
     fun connectPeripheral(): BluetoothGattCallback {
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
@@ -577,6 +661,7 @@ class BluetoothPeripheralTests {
         private val SERVICE_UUID = UUID.fromString("00001809-0000-1000-8000-00805f9b34fb")
         private val CHAR_UUID = UUID.fromString("00002A1C-0000-1000-8000-00805f9b34fb")
         private val CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        private val DESCRIPTOR_UUID = UUID.fromString("00002901-0000-1000-8000-00805f9b34fb")
     }
 
 }

@@ -831,7 +831,6 @@ class BluetoothPeripheral internal constructor(
     /**
      * Read the value of a characteristic.
      *
-     *
      * Convenience function to read a characteristic without first having to find it.
      *
      * @param serviceUUID        the service UUID the characteristic belongs to
@@ -984,8 +983,24 @@ class BluetoothPeripheral internal constructor(
     /**
      * Read the value of a descriptor.
      *
+     * Convenience function to read a descriptor without first having to find it.
+     *
+     * @param serviceUUID        the service UUID the characteristic belongs to
+     * @param characteristicUUID the characteristic's UUID
+     * @param descriptorUUID    the descriptor's UUID
+     * @return true if the descriptor was found and the operation was enqueued, otherwise false
+     * @throws IllegalArgumentException if the descriptor does not support reading
+     */
+    fun readDescriptor(serviceUUID: UUID, characteristicUUID: UUID, descriptorUUID: UUID): Boolean {
+        val descriptor = getCharacteristic(serviceUUID, characteristicUUID)?.getDescriptor(descriptorUUID)
+        return descriptor?.let { readDescriptor(it) } ?: false
+    }
+
+    /**
+     * Read the value of a descriptor.
+     *
      * @param descriptor the descriptor to read
-     * @return true if a write operation was succesfully enqueued, otherwise false
+     * @return true if a read operation was successfully enqueued, otherwise false
      */
     fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean {
         if (notConnected()) {
@@ -1008,14 +1023,31 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
+     * Write the value of a descriptor.
+     *
+     * Convenience function to write a descriptor without first having to find it.
+     *
+     * @param serviceUUID        the service UUID the characteristic belongs to
+     * @param characteristicUUID the characteristic's UUID
+     * @param descriptorUUID    the descriptor's UUID
+     * @param value      the value to write
+     * @return true if the descriptor was found and the operation was enqueued, otherwise false
+     * @throws IllegalArgumentException if the value is not valid
+     */
+    fun writeDescriptor(serviceUUID: UUID, characteristicUUID: UUID, descriptorUUID: UUID, value: ByteArray): Boolean {
+        val descriptor = getCharacteristic(serviceUUID, characteristicUUID)?.getDescriptor(descriptorUUID)
+        return descriptor?.let { writeDescriptor(it, value) } ?: false
+    }
+
+    /**
      * Write a value to a descriptor.
      *
-     *
-     * For turning on/off notifications use [BluetoothPeripheral.setNotify] instead.
+     * For turning on/off notifications use [BluetoothPeripheral.startNotify] instead.
      *
      * @param descriptor the descriptor to write to
      * @param value      the value to write
-     * @return true if a write operation was succesfully enqueued, otherwise false
+     * @return true if a write operation was successfully enqueued, otherwise false
+     * @throws IllegalArgumentException if the value is not valid
      */
     fun writeDescriptor(descriptor: BluetoothGattDescriptor, value: ByteArray): Boolean {
         if (notConnected()) {
