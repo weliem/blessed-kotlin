@@ -643,6 +643,59 @@ class BluetoothPeripheralTests {
         verify { peripheralCallback.onDescriptorWrite(peripheral, bytes, descriptor, GattStatus.SUCCESS) }
     }
 
+    @Test
+    fun `Given a connected peripheral, when readRemoteRssi is called, then the rssi is read and delivered`() {
+        // Given
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.readRemoteRssi()
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.readRemoteRssi() }
+
+        // When
+        gattCallback.onReadRemoteRssi(gatt, -40, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onReadRemoteRssi(peripheral, -40, GattStatus.SUCCESS) }
+    }
+
+    @Test
+    fun `Given a connected peripheral, when requestMtu is called, then the MTU is requested and delivered`() {
+        // Given
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.requestMtu(48)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.requestMtu(48) }
+
+        // When
+        gattCallback.onMtuChanged(gatt, 48, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onMtuChanged(peripheral, 48, GattStatus.SUCCESS) }
+    }
+
+    @Test
+    fun `Given a connected peripheral, when requestConnectionPriority is called, then the priority is requested`() {
+        // Given
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.requestConnectionPriority(ConnectionPriority.HIGH.value) }
+    }
+
     fun connectPeripheral(): BluetoothGattCallback {
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
