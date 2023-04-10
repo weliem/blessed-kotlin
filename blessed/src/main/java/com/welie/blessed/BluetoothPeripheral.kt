@@ -457,6 +457,12 @@ class BluetoothPeripheral internal constructor(
             }
             BluetoothDevice.BOND_NONE -> {
                 if (previousBondState == BluetoothDevice.BOND_BONDING) {
+                    // If we are doing a manual bond, complete the command
+                    if (manuallyBonding) {
+                        manuallyBonding = false
+                        completedCommand()
+                    }
+
                     Logger.e(TAG, "bonding failed for '%s', disconnecting device", name)
                     callbackHandler.post { peripheralCallback.onBondingFailed(this@BluetoothPeripheral) }
                 } else {
@@ -481,7 +487,7 @@ class BluetoothPeripheral internal constructor(
                 mainHandler.postDelayed({
                     if (getState() == ConnectionState.CONNECTED) {
                         // If we are still connected, then disconnect because we usually can't interact with the peripheral anymore
-                        // Some peripherals already do a diconnect by themselves (REMOTE_USER_TERMINATED_CONNECTION) so we may already be disconnected
+                        // Some peripherals already do a disconnect by themselves (REMOTE_USER_TERMINATED_CONNECTION) so we may already be disconnected
                         disconnect()
                     }
                 }, 100)

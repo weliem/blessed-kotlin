@@ -797,8 +797,7 @@ class BluetoothPeripheralTests {
     fun `Given a connected peripheral, when requestConnectionPriority is called, then the priority is requested`() {
         // Given
         every { gatt.requestConnectionPriority(ConnectionPriority.HIGH.value) } returns true
-
-        val gattCallback = connectPeripheral()
+        connectPeripheral()
 
         // When
         peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
@@ -819,10 +818,12 @@ class BluetoothPeripheralTests {
         // Given
         val intentBonding = Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
         intentBonding.putExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_BONDING)
+        intentBonding.putExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.BOND_NONE)
         intentBonding.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
 
         val intentBonded = Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
         intentBonded.putExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_BONDED)
+        intentBonded.putExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.BOND_BONDING)
         intentBonded.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
 
         val service = BluetoothGattService(SERVICE_UUID, 0)
@@ -855,6 +856,101 @@ class BluetoothPeripheralTests {
         // Then
         verify { peripheralCallback.onBondingSucceeded(peripheral) }
         assertTrue(peripheral.queuedCommands == 0)
+    }
+
+    @Test
+    fun `Given a connected peripheral, when createBond is called and bonding fails, then onBondingFailed is called`() {
+        // Given
+        val intentBonding = Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        intentBonding.putExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_BONDING)
+        intentBonding.putExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.BOND_NONE)
+        intentBonding.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
+
+        val intentBondNone = Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        intentBondNone.putExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
+        intentBondNone.putExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.BOND_BONDING)
+        intentBondNone.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
+
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.services } returns listOf(service)
+        every { device.createBond() } returns true
+        connectPeripheral()
+
+        // When
+        peripheral.createBond()
+        assertTrue(peripheral.queuedCommands == 1)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { device.createBond() }
+
+        // When
+        val bondStateReceiver = getBondStateReceiver()!!
+        bondStateReceiver.onReceive(context, intentBonding)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onBondingStarted(peripheral) }
+        assertTrue(peripheral.queuedCommands == 1)
+
+        // When
+        bondStateReceiver.onReceive(context, intentBondNone)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onBondingFailed(peripheral) }
+        assertTrue(peripheral.queuedCommands == 0)
+    }
+
+    @Test
+    fun `Given a connected bonded device, when a bond is lost, then the OnBondLost callback is called`() {
+        // Given
+        every { device.bondState } returns BluetoothDevice.BOND_BONDED
+        connectPeripheral()
+
+        // When
+        val intentBondNone = Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        intentBondNone.putExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE)
+        intentBondNone.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
+
+        val bondStateReceiver = getBondStateReceiver()!!
+        bondStateReceiver.onReceive(context, intentBondNone)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onBondLost(peripheral) }
+    }
+
+    @Test
+    fun `Given an unconnected device, when createBond is called and successful, then connectGatt is called`() {
+        // Given
+        val intentBonded = Intent(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        intentBonded.putExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_BONDED)
+        intentBonded.putExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.BOND_BONDING)
+        intentBonded.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
+
+        val service = BluetoothGattService(SERVICE_UUID, 0)
+        every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.services } returns listOf(service)
+        every { device.createBond() } returns true
+
+        // When
+        peripheral.createBond()
+        assertTrue(peripheral.queuedCommands == 0)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { device.createBond() }
+
+        // When
+        val bondStateReceiver = getBondStateReceiver()!!
+        bondStateReceiver.onReceive(context, intentBonded)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { peripheralCallback.onBondingSucceeded(peripheral) }
+        verify { device.connectGatt(context, false, any(), Transport.LE.value) }
     }
 
     fun connectPeripheral(): BluetoothGattCallback {
