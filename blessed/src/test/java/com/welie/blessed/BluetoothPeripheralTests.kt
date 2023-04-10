@@ -33,7 +33,7 @@ class BluetoothPeripheralTests {
     fun setup() {
         context = mockk(relaxed = true)
         device = mockk(relaxed = true)
-        gatt = mockk(relaxed = true)
+        gatt = mockk(relaxed = false)
         internalCallback = mockk(relaxed = true)
         peripheralCallback = mockk(relaxed = true)
 
@@ -41,6 +41,8 @@ class BluetoothPeripheralTests {
         every { device.name } returns DEVICE_NAME
         every { device.connectGatt(any(), any(), any(), any()) } returns gatt
         every { gatt.device } returns device
+        every { gatt.disconnect() } returns Unit
+        every { gatt.close() } returns Unit
 
         peripheral = BluetoothPeripheral(context, device, internalCallback, peripheralCallback, Handler(Looper.getMainLooper()), transport)
     }
@@ -253,6 +255,7 @@ class BluetoothPeripheralTests {
 
         // When
         peripheral.startNotify(SERVICE_UUID, CHAR_UUID)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -265,6 +268,7 @@ class BluetoothPeripheralTests {
         // Then
         assertTrue(peripheral.isNotifying(characteristic))
         assertTrue(peripheral.getNotifyingCharacteristics().contains(characteristic))
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -281,6 +285,7 @@ class BluetoothPeripheralTests {
 
         // When
         peripheral.startNotify(SERVICE_UUID, CHAR_UUID)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -293,6 +298,7 @@ class BluetoothPeripheralTests {
         // Then
         assertTrue(peripheral.isNotifying(characteristic))
         assertTrue(peripheral.getNotifyingCharacteristics().contains(characteristic))
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -330,6 +336,7 @@ class BluetoothPeripheralTests {
 
         // When
         peripheral.stopNotify(SERVICE_UUID, CHAR_UUID)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -342,6 +349,7 @@ class BluetoothPeripheralTests {
         // Then
         assertFalse(peripheral.isNotifying(characteristic))
         assertFalse(peripheral.getNotifyingCharacteristics().contains(characteristic))
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -377,10 +385,13 @@ class BluetoothPeripheralTests {
         val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_READ, PERMISSION_READ)
         service.addCharacteristic(characteristic)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.readCharacteristic(characteristic) } returns true
+
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -392,6 +403,7 @@ class BluetoothPeripheralTests {
 
         // Then
         verify { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -404,6 +416,7 @@ class BluetoothPeripheralTests {
 
         // When
         peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        assertTrue(peripheral.queuedCommands == 0)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -418,6 +431,8 @@ class BluetoothPeripheralTests {
         val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_WRITE, PERMISSION_WRITE)
         service.addCharacteristic(characteristic)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.readCharacteristic(characteristic) } returns true
+
         connectPeripheral()
 
         // When
@@ -433,11 +448,13 @@ class BluetoothPeripheralTests {
         val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_READ, PERMISSION_READ)
         service.addCharacteristic(characteristic)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.readCharacteristic(characteristic) } returns true
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
         peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        assertTrue(peripheral.queuedCommands == 2)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -445,7 +462,9 @@ class BluetoothPeripheralTests {
 
         // When
         gattCallback.onCharacteristicRead(gatt, characteristic, bytes, GattStatus.SUCCESS.value)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
 
         // Then
         verify { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
@@ -457,6 +476,7 @@ class BluetoothPeripheralTests {
 
         // Then
         verify(exactly = 2) { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -467,11 +487,13 @@ class BluetoothPeripheralTests {
         val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_READ, PERMISSION_READ)
         service.addCharacteristic(characteristic)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.readCharacteristic(characteristic) } returns true
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
         peripheral.readCharacteristic(SERVICE_UUID, CHAR_UUID)
+        assertTrue(peripheral.queuedCommands == 2)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -479,6 +501,7 @@ class BluetoothPeripheralTests {
 
         // When
         gattCallback.onCharacteristicRead(gatt, characteristic, bytes, GattStatus.UNLIKELY_ERROR.value)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -491,7 +514,9 @@ class BluetoothPeripheralTests {
 
         // Then
         verify { peripheralCallback.onCharacteristicUpdate(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
+
     @Test
     fun `Given a peripheral with a writable-with-response characteristic, when writeCharacteristic is called, then the bytes are written`() {
         // Given
@@ -500,10 +525,12 @@ class BluetoothPeripheralTests {
         val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_WRITE, PERMISSION_WRITE)
         service.addCharacteristic(characteristic)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.writeCharacteristic(characteristic, bytes, WriteType.WITH_RESPONSE.writeType) } returns BluetoothStatusCodes.SUCCESS
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITH_RESPONSE)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -515,6 +542,7 @@ class BluetoothPeripheralTests {
 
         // Then
         verify { peripheralCallback.onCharacteristicWrite(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -525,10 +553,12 @@ class BluetoothPeripheralTests {
         val characteristic = BluetoothGattCharacteristic(CHAR_UUID, PROPERTY_WRITE_NO_RESPONSE, PERMISSION_WRITE)
         service.addCharacteristic(characteristic)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.writeCharacteristic(characteristic, bytes, WriteType.WITHOUT_RESPONSE.writeType) } returns BluetoothStatusCodes.SUCCESS
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITHOUT_RESPONSE)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -540,6 +570,7 @@ class BluetoothPeripheralTests {
 
         // Then
         verify { peripheralCallback.onCharacteristicWrite(peripheral, bytes, characteristic, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -553,6 +584,7 @@ class BluetoothPeripheralTests {
 
         // When
         peripheral.writeCharacteristic(SERVICE_UUID, CHAR_UUID, bytes, WriteType.WITHOUT_RESPONSE)
+        assertTrue(peripheral.queuedCommands == 0)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
@@ -599,21 +631,25 @@ class BluetoothPeripheralTests {
         service.addCharacteristic(characteristic)
         characteristic.addDescriptor(descriptor)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.readDescriptor(descriptor) } returns true
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.readDescriptor(SERVICE_UUID, CHAR_UUID, CCCD_UUID)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { gatt.readDescriptor(descriptor) }
 
         // When
+        assertTrue(peripheral.queuedCommands == 1)
         gattCallback.onDescriptorRead(gatt, descriptor, GattStatus.SUCCESS.value, bytes)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { peripheralCallback.onDescriptorRead(peripheral, bytes, descriptor, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
@@ -626,77 +662,98 @@ class BluetoothPeripheralTests {
         service.addCharacteristic(characteristic)
         characteristic.addDescriptor(descriptor)
         every { gatt.getService(SERVICE_UUID) } returns service
+        every { gatt.writeDescriptor(descriptor, bytes) } returns BluetoothStatusCodes.SUCCESS
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.writeDescriptor(SERVICE_UUID, CHAR_UUID, DESCRIPTOR_UUID, bytes)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { gatt.writeDescriptor(descriptor, bytes) }
 
         // When
+        assertTrue(peripheral.queuedCommands == 1)
         gattCallback.onDescriptorWrite(gatt, descriptor, GattStatus.SUCCESS.value)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { peripheralCallback.onDescriptorWrite(peripheral, bytes, descriptor, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
     fun `Given a connected peripheral, when readRemoteRssi is called, then the rssi is read and delivered`() {
         // Given
+        every { gatt.readRemoteRssi() } returns true
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.readRemoteRssi()
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { gatt.readRemoteRssi() }
 
         // When
+        assertTrue(peripheral.queuedCommands == 1)
         gattCallback.onReadRemoteRssi(gatt, -40, GattStatus.SUCCESS.value)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { peripheralCallback.onReadRemoteRssi(peripheral, -40, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
     fun `Given a connected peripheral, when requestMtu is called, then the MTU is requested and delivered`() {
         // Given
+        every { gatt.requestMtu(48) } returns true
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.requestMtu(48)
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { gatt.requestMtu(48) }
 
         // When
+        assertTrue(peripheral.queuedCommands == 1)
         gattCallback.onMtuChanged(gatt, 48, GattStatus.SUCCESS.value)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { peripheralCallback.onMtuChanged(peripheral, 48, GattStatus.SUCCESS) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     @Test
     fun `Given a connected peripheral, when requestConnectionPriority is called, then the priority is requested`() {
         // Given
+        every { gatt.requestConnectionPriority(ConnectionPriority.HIGH.value) } returns true
+
         val gattCallback = connectPeripheral()
 
         // When
         peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
+        assertTrue(peripheral.queuedCommands == 1)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Wait for command completion since this call has no callback
+        assertTrue(peripheral.queuedCommands == 1)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
         verify { gatt.requestConnectionPriority(ConnectionPriority.HIGH.value) }
+        assertTrue(peripheral.queuedCommands == 0)
     }
 
     fun connectPeripheral(): BluetoothGattCallback {
+        every { gatt.discoverServices() } returns true
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()

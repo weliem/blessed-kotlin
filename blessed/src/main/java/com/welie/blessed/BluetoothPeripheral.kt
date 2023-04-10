@@ -85,6 +85,10 @@ class BluetoothPeripheral internal constructor(
     var currentMtu = DEFAULT_MTU
         private set
 
+    internal var queuedCommands: Int = 0
+        get() =  commandQueue.size
+        private set
+
     /**
      * This abstract class is used to implement BluetoothGatt callbacks.
      */
