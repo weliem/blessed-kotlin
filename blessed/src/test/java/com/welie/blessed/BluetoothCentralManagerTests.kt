@@ -38,7 +38,7 @@ class BluetoothCentralManagerTests {
     private val broadcastReceiverSlot = slot<BroadcastReceiver>()
     private var broadcastReceiverCapturedList = mutableListOf<BroadcastReceiver>()
     private val intentFilterSlot = slot<IntentFilter>()
-    private val intentFilerCapturedList = mutableListOf<IntentFilter>()
+    private val intentFilterCapturedList = mutableListOf<IntentFilter>()
 
     @Before
     fun setup() {
@@ -62,7 +62,7 @@ class BluetoothCentralManagerTests {
             )
         } answers {
             broadcastReceiverCapturedList.add(broadcastReceiverSlot.captured)
-            intentFilerCapturedList.add(intentFilterSlot.captured)
+            intentFilterCapturedList.add(intentFilterSlot.captured)
             null
         }
 
