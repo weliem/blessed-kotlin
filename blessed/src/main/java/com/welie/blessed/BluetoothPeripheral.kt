@@ -296,9 +296,10 @@ class BluetoothPeripheral internal constructor(
         override fun onServiceChanged(gatt: BluetoothGatt) {
             Logger.d(TAG, "onServiceChangedCalled")
 
-            // Does it realy make sense to discover services? Or should we just disconnect and reconnect?
+            // Does it really make sense to discover services? Or should we just disconnect and reconnect?
             commandQueue.clear()
             commandQueueBusy = false
+            clearServicesCache()
             delayedDiscoverServices(100)
         }
     }
@@ -318,7 +319,7 @@ class BluetoothPeripheral internal constructor(
     private fun delayedDiscoverServices(delay: Long) {
         discoverServicesRunnable = Runnable {
             Logger.d(TAG, "discovering services of '%s' with delay of %d ms", name, delay)
-            if (bluetoothGatt != null && bluetoothGatt!!.discoverServices()) {
+            if (bluetoothGatt?.discoverServices() == true) {
                 discoveryStarted = true
             } else {
                 Logger.e(TAG, "discoverServices failed to start")
@@ -330,18 +331,6 @@ class BluetoothPeripheral internal constructor(
             mainHandler.postDelayed(it, delay)
         }
     }
-//
-//    private fun getServiceDiscoveryDelay(bondstate: BondState): Long {
-//        var delayWhenBonded: Long = 0
-//        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.N) {
-//            // It seems delays when bonded are only needed in versions Nougat or lower
-//            // This issue was observed on a Nexus 5 (M) and Sony Xperia L1 (N) when connecting to a A&D UA-651BLE
-//            // The delay is needed when devices have the Service Changed Characteristic.
-//            // If they don't have it the delay isn't needed but we do it anyway to keep code simple
-//            delayWhenBonded = 1000L
-//        }
-//        return if (bondstate == BondState.BONDED) delayWhenBonded else 0
-//    }
 
     private fun successfullyDisconnected(previousState: Int) {
         if (previousState == BluetoothProfile.STATE_CONNECTED || previousState == BluetoothProfile.STATE_DISCONNECTING) {
@@ -518,10 +507,6 @@ class BluetoothPeripheral internal constructor(
         }
     }
 
-//    fun setPeripheralCallback(peripheralCallback: BluetoothPeripheralCallback) {
-//        this.peripheralCallback = peripheralCallback
-//    }
-
     fun setDevice(bluetoothDevice: BluetoothDevice) {
         device = bluetoothDevice
     }
@@ -671,7 +656,7 @@ class BluetoothPeripheral internal constructor(
             }
             mainHandler.post {
                 if (state == BluetoothProfile.STATE_DISCONNECTING && bluetoothGatt != null) {
-                    bluetoothGatt!!.disconnect()
+                    bluetoothGatt?.disconnect()
                     Logger.i(TAG, "force disconnect '%s' (%s)", name, address)
                 }
             }
@@ -688,9 +673,7 @@ class BluetoothPeripheral internal constructor(
      * Complete the disconnect after getting connectionstate == disconnected
      */
     private fun completeDisconnect(notify: Boolean, status: HciStatus) {
-        bluetoothGatt?.let {
-            it.close()
-        }
+        bluetoothGatt?.close()
         bluetoothGatt = null
         commandQueue.clear()
         commandQueueBusy = false
@@ -726,7 +709,7 @@ class BluetoothPeripheral internal constructor(
      * @return the PeripheralType
      */
     val type: PeripheralType
-        get() = PeripheralType.fromValue(device.type)// Cache the name so that we even know it when bluetooth is switched off
+        get() = PeripheralType.fromValue(device.type)
 
     /**
      * Get the name of the bluetooth peripheral.
@@ -894,7 +877,6 @@ class BluetoothPeripheral internal constructor(
 
     /**
      * Write a value to a characteristic using the specified write type.
-     *
      *
      * Convenience function to write a characteristic without first having to find it.
      * All parameters must have a valid value in order for the operation to be enqueued.
@@ -1190,7 +1172,6 @@ class BluetoothPeripheral internal constructor(
     /**
      * Read the RSSI for a connected remote peripheral.
      *
-     *
      * [BluetoothPeripheralCallback.onReadRemoteRssi] will be triggered as a result of this call.
      *
      * @return true if the operation was enqueued, false otherwise
@@ -1215,11 +1196,9 @@ class BluetoothPeripheral internal constructor(
     /**
      * Request an MTU size used for a given connection.
      *
-     *
      * When performing a write request operation (write without response),
      * the data sent is truncated to the MTU size. This function may be used
      * to request a larger MTU size to be able to send more data at once.
-     *
      *
      * Note that requesting an MTU should only take place once per connection, according to the Bluetooth standard.
      *
@@ -1280,7 +1259,6 @@ class BluetoothPeripheral internal constructor(
      * Set the preferred connection PHY for this app. Please note that this is just a
      * recommendation, whether the PHY change will happen depends on other applications preferences,
      * local and remote controller capabilities. Controller can override these settings.
-     *
      *
      * [BluetoothPeripheralCallback.onPhyUpdate] will be triggered as a result of this call, even
      * if no PHY change happens. It is also triggered when remote device updates the PHY.

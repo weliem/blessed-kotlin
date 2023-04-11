@@ -182,8 +182,7 @@ class BluetoothPeripheralTests {
         every { device.bondState } returns BluetoothDevice.BOND_NONE
 
         // When
-        val gattCallback = connectPeripheral()
-        gattCallback.onConnectionStateChange(gatt, HciStatus.SUCCESS.value, ConnectionState.CONNECTED.value)
+        connectPeripheral()
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
