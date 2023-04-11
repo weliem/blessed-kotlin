@@ -191,6 +191,19 @@ class BluetoothPeripheralTests {
     }
 
     @Test
+    fun `Given an connected device, when service discovery fails, then the device is disconnected`() {
+        // Given
+        val gattCallback = connectPeripheral()
+
+        // When
+        gattCallback.onServicesDiscovered(gatt, 129)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.disconnect() }
+    }
+
+    @Test
     fun `Given an unconnected bonded device, when it connects and bonding is not in progress, then services are discovered`() {
         // Given
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
@@ -247,6 +260,7 @@ class BluetoothPeripheralTests {
         // Then
         verify(exactly = 0) { gatt.discoverServices() }
     }
+
 
     @Test
     fun `When getAddress is called, the address of the device is returned`() {
@@ -794,6 +808,52 @@ class BluetoothPeripheralTests {
     }
 
     @Test
+    fun `Given a connected peripheral, when setPreferredPhy is called, then the preferred Phy is set`() {
+        // Given
+        every { gatt.setPreferredPhy(any(), any(), any()) } returns Unit
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.setPreferredPhy(PhyType.LE_2M, PhyType.LE_2M, PhyOptions.S2)
+        assertTrue(peripheral.queuedCommands == 1)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.setPreferredPhy(PhyType.LE_2M.value, PhyType.LE_2M.value, PhyOptions.S2.value) }
+
+        // When
+        gattCallback.onPhyUpdate(gatt,PhyType.LE_2M.value, PhyType.LE_2M.value, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+        assertTrue(peripheral.queuedCommands == 0)
+
+        // Then
+        verify { peripheralCallback.onPhyUpdate(peripheral, PhyType.LE_2M, PhyType.LE_2M, GattStatus.SUCCESS)}
+    }
+
+    @Test
+    fun `Given a connected peripheral, when readPhy is called, then the Phy is read`() {
+        // Given
+        every { gatt.readPhy() } returns Unit
+        val gattCallback = connectPeripheral()
+
+        // When
+        peripheral.readPhy()
+        assertTrue(peripheral.queuedCommands == 1)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { gatt.readPhy() }
+
+        // When
+        gattCallback.onPhyRead(gatt,PhyType.LE_2M.value, PhyType.LE_2M.value, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+        assertTrue(peripheral.queuedCommands == 0)
+
+        // Then
+        verify { peripheralCallback.onPhyUpdate(peripheral, PhyType.LE_2M, PhyType.LE_2M, GattStatus.SUCCESS)}
+    }
+
+    @Test
     fun `Given a connected peripheral, when requestConnectionPriority is called, then the priority is requested`() {
         // Given
         every { gatt.requestConnectionPriority(ConnectionPriority.HIGH.value) } returns true
@@ -904,7 +964,7 @@ class BluetoothPeripheralTests {
     }
 
     @Test
-    fun `Given a connected bonded device, when a bond is lost, then the OnBondLost callback is called`() {
+    fun `Given a connected bonded device, when a bond is lost, then the OnBondLost callback is called and the device is disconnected`() {
         // Given
         every { device.bondState } returns BluetoothDevice.BOND_BONDED
         connectPeripheral()
@@ -920,6 +980,7 @@ class BluetoothPeripheralTests {
 
         // Then
         verify { peripheralCallback.onBondLost(peripheral) }
+        verify { gatt.disconnect() }
     }
 
     @Test
@@ -953,7 +1014,7 @@ class BluetoothPeripheralTests {
         verify { device.connectGatt(context, false, any(), Transport.LE.value) }
     }
 
-    fun connectPeripheral(): BluetoothGattCallback {
+    private fun connectPeripheral(): BluetoothGattCallback {
         every { gatt.discoverServices() } returns true
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
@@ -966,7 +1027,7 @@ class BluetoothPeripheralTests {
         return gattCallback.captured
     }
 
-    fun getBondStateReceiver(): BroadcastReceiver? {
+    private fun getBondStateReceiver(): BroadcastReceiver? {
         for (i in intentFilterCapturedList.indices) {
             if(intentFilterCapturedList[i].hasAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
                 return broadcastReceiverCapturedList[i]

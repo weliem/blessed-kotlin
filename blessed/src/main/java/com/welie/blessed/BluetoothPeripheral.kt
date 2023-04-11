@@ -1304,7 +1304,7 @@ class BluetoothPeripheral internal constructor(
 
                 if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
                     // There is a bug in Android 13 where onPhyUpdate is not always called
-                    // Therefore complete this command after a delay in order not to block the queueu
+                    // Therefore complete this command after a delay in order not to block the queue
                     currentCommand = IDLE
                     callbackHandler.postDelayed({ completedCommand() }, 200)
                 }
