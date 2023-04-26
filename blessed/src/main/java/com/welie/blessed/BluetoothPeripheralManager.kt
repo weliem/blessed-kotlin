@@ -64,6 +64,10 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
     @Volatile
     private var commandQueueBusy = false
 
+    internal var queuedCommands: Int = 0
+        get() =  commandQueue.size
+        private set
+
     private val bluetoothGattServerCallback: BluetoothGattServerCallback = object : BluetoothGattServerCallback() {
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -366,7 +370,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
             super.onPhyRead(device, txPhy, rxPhy, status)
         }
     }
-    private val advertiseCallback: AdvertiseCallback = object : AdvertiseCallback() {
+    internal val advertiseCallback: AdvertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             Logger.i(TAG, "advertising started")
             mainHandler.post { callback.onAdvertisingStarted(settingsInEffect) }
