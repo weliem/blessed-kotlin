@@ -56,8 +56,6 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     @Volatile
     private var autoConnectScanner: BluetoothLeScanner? = null
 
-//    private val bluetoothCentralManagerCallback: BluetoothCentralManagerCallback
-
     private val connectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
     val unconnectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
     private val scannedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
@@ -160,7 +158,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
         }
     }
 
-    private val internalCallback: InternalCallback = object : InternalCallback {
+    internal val internalCallback: InternalCallback = object : InternalCallback {
         override fun connecting(peripheral: BluetoothPeripheral) {
             callBackHandler.post { bluetoothCentralManagerCallback.onConnectingPeripheral(peripheral) }
         }

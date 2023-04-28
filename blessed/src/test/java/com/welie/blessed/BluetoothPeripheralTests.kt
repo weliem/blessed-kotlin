@@ -1015,14 +1015,22 @@ class BluetoothPeripheralTests {
 
     private fun connectPeripheral(): BluetoothGattCallback {
         every { gatt.discoverServices() } returns true
+        every { gatt.services } returns emptyList()
         assertTrue(peripheral.getState() == ConnectionState.DISCONNECTED)
         peripheral.connect()
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         val gattCallback = slot<BluetoothGattCallback>()
         verify { device.connectGatt(context, false, capture(gattCallback), transport.value) }
+        verify { internalCallback.connecting(peripheral) }
+
         gattCallback.captured.onConnectionStateChange(gatt, GattStatus.SUCCESS.value, ConnectionState.CONNECTED.value)
         assertTrue(peripheral.getState() == ConnectionState.CONNECTED)
+
+        gattCallback.captured.onServicesDiscovered(gatt, GattStatus.SUCCESS.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        verify { internalCallback.connected(peripheral) }
         return gattCallback.captured
     }
 

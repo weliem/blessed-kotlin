@@ -371,6 +371,72 @@ class BluetoothCentralManagerTests {
     }
 
     @Test
+    fun `Given a connecting peripheral, when it connects, then onConnectedPeripheral is called`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns false
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.connect() } returns Unit
+
+        // When
+        central.connectPeripheral(peripheral, peripheralCallback)
+        central.internalCallback.connecting(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onConnectingPeripheral(peripheral) }
+        assertTrue(central.getConnectedPeripherals().isEmpty())
+
+        // When
+        central.internalCallback.connected(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onConnectedPeripheral(peripheral) }
+        assertTrue(central.getConnectedPeripherals().size == 1)
+    }
+
+    @Test
+    fun `Given a connected peripheral, when it disconnects, then onDisconnectedPeripheral is called`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns false
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.connect() } returns Unit
+
+        // When
+        central.connectPeripheral(peripheral, peripheralCallback)
+        central.internalCallback.connecting(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onConnectingPeripheral(peripheral) }
+        assertTrue(central.getConnectedPeripherals().isEmpty())
+
+        // When
+        central.internalCallback.connected(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onConnectedPeripheral(peripheral) }
+        assertTrue(central.getConnectedPeripherals().size == 1)
+
+        // When
+        central.internalCallback.disconnected(peripheral, HciStatus.OPERATION_CANCELLED_BY_HOST)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onDisconnectedPeripheral(peripheral, HciStatus.OPERATION_CANCELLED_BY_HOST) }
+        assertTrue(central.getConnectedPeripherals().isEmpty())
+    }
+
+    @Test
     fun `When autoConnectPeripheral is called on a cached peripheral, then an autoConnect command is issued`() {
         // Given
         every { bluetoothAdapter.isEnabled } returns true
