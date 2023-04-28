@@ -45,7 +45,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 @Suppress("unused")
 class BluetoothPeripheral internal constructor(
     private val context: Context,
-    private var device: BluetoothDevice,
+    internal var device: BluetoothDevice,
     private val listener: InternalCallback,
     var peripheralCallback: BluetoothPeripheralCallback,
     private val callbackHandler: Handler,

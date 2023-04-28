@@ -98,6 +98,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             sendScanFailed(ScanFailure.fromValue(errorCode))
         }
     }
+
     private val defaultScanCallback: ScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             synchronized(this) { sendScanResult(result) }
@@ -401,14 +402,12 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
 
     private fun stopAutoconnectScan() {
         cancelAutoConnectTimer()
-        if (autoConnectScanner != null) {
-            try {
-                autoConnectScanner?.stopScan(autoConnectScanCallback)
-            } catch (ignore: Exception) {
-            }
-            autoConnectScanner = null
-            Logger.i(TAG, "autoscan stopped")
+        try {
+            autoConnectScanner?.stopScan(autoConnectScanCallback)
+        } catch (ignore: Exception) {
         }
+        autoConnectScanner = null
+        Logger.i(TAG, "autoscan stopped")
     }
 
     private val isAutoScanning: Boolean

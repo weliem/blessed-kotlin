@@ -208,6 +208,34 @@ class BluetoothCentralManagerTests {
     }
 
     @Test
+    fun `When a custom filtered scan is started, then filtered scan is started`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val filter = ScanFilter.Builder()
+            .setDeviceAddress(DEVICE_ADDRESS)
+            .setDeviceName(DEVICE_NAME)
+            .build()
+
+        // When
+        central.scanForPeripheralsUsingFilters(listOf(filter))
+
+        // Then
+        val filters = slot<List<ScanFilter>>()
+        verify { scanner.startScan(capture(filters), any(), any<ScanCallback>()) }
+        assertEquals(filters.captured[0], filter)
+        assertTrue(central.isScanning)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `When a custom filtered scan is started without any filters, then an exception is raised`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+
+        // When
+        central.scanForPeripheralsUsingFilters(emptyList())
+    }
+
+    @Test
     fun `When a name filtered scan is started, then matching ScanResults and Peripherals will be received`() {
         // Given
         val scanCallback = slot<ScanCallback>()
@@ -248,6 +276,27 @@ class BluetoothCentralManagerTests {
 
         // Then
         verify { callback.onScanFailed(ScanFailure.OUT_OF_HARDWARE_RESOURCES) }
+        assertFalse(central.isScanning)
+    }
+
+    @Test
+    fun `When starting a scan by name fails, then the error is reported`() {
+        // Given
+        val scanCallback = slot<ScanCallback>()
+        val device = getDevice(address = DEVICE_ADDRESS)
+        val scanResult = getScanResult(device)
+        every { bluetoothAdapter.isEnabled } returns true
+        every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS) } returns device
+
+        // When
+        central.scanForPeripheralsWithNames(arrayOf("Test"))
+        verify { scanner.startScan(any(), any(), capture(scanCallback)) }
+        scanCallback.captured.onScanFailed(ScanFailure.OUT_OF_HARDWARE_RESOURCES.value)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onScanFailed(ScanFailure.OUT_OF_HARDWARE_RESOURCES) }
+        assertFalse(central.isScanning)
     }
 
     @Test
@@ -270,10 +319,11 @@ class BluetoothCentralManagerTests {
 
         // Then
         verify { callback.onScanFailed(ScanFailure.OUT_OF_HARDWARE_RESOURCES) }
+        assertFalse(central.isScanning)
     }
 
     @Test
-    fun `Give a scan is running, when stopScan is called, then the scan is stopped`() {
+    fun `Given a scan is running, when stopScan is called, then the scan is stopped`() {
         // Given
         every { bluetoothAdapter.isEnabled } returns true
         central.scanForPeripherals()
@@ -287,7 +337,7 @@ class BluetoothCentralManagerTests {
     }
 
     @Test
-    fun `Give a scan is running, when scanForPeripherals is called, then the scan is stopped and a new one is started`() {
+    fun `Given a scan is running, when scanForPeripherals is called, then the scan is stopped and a new one is started`() {
         // Given
         every { bluetoothAdapter.isEnabled } returns true
         central.scanForPeripherals()
@@ -321,7 +371,7 @@ class BluetoothCentralManagerTests {
     }
 
     @Test
-    fun `When autoConnectPeripheral is called, then an autoConnect command is issued`() {
+    fun `When autoConnectPeripheral is called on a cached peripheral, then an autoConnect command is issued`() {
         // Given
         every { bluetoothAdapter.isEnabled } returns true
         val peripheral = mockk<BluetoothPeripheral>()
@@ -337,6 +387,58 @@ class BluetoothCentralManagerTests {
         // Then
         verify { peripheral.autoConnect() }
         assertTrue(central.unconnectedPeripherals[DEVICE_ADDRESS] == peripheral)
+    }
+
+    @Test
+    fun `When autoConnectPeripheral is called on an uncached peripheral, then an internal autoConnectScan is started`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns true
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.autoConnect() } returns Unit
+
+        // When
+        central.autoConnectPeripheral(peripheral, peripheralCallback)
+
+        // Then
+        val filters = slot<List<ScanFilter>>()
+        verify { scanner.startScan(capture(filters), any(), any<ScanCallback>()) }
+        assertTrue(central.unconnectedPeripherals[DEVICE_ADDRESS] == peripheral)
+        assertTrue(filters.captured[0].deviceAddress == DEVICE_ADDRESS)
+        assertFalse(central.isScanning)
+    }
+
+    @Test
+    fun `When an uncached peripheral is found during autoConnect, then it is connected`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val device = getDevice(address = DEVICE_ADDRESS)
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns true
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.autoConnect() } returns Unit
+        every { peripheral.device } returns device
+        every { peripheral.connect() } returns Unit
+
+        // When
+        central.autoConnectPeripheral(peripheral, peripheralCallback)
+
+        // Then
+        val callbackSlot = slot<ScanCallback>()
+        verify { scanner.startScan(any(), any(), capture(callbackSlot)) }
+
+        // When
+        val scanResult = getScanResult(device)
+        callbackSlot.captured.onScanResult(CALLBACK_TYPE_ALL_MATCHES, scanResult)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Verify
+        verify { peripheral.connect() }
     }
 
     private fun getScanResult(device: BluetoothDevice): ScanResult {
