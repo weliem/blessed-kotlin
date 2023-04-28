@@ -68,7 +68,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         get() =  commandQueue.size
         private set
 
-    private val bluetoothGattServerCallback: BluetoothGattServerCallback = object : BluetoothGattServerCallback() {
+    val bluetoothGattServerCallback: BluetoothGattServerCallback = object : BluetoothGattServerCallback() {
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -136,12 +136,16 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                     val response = callback.onCharacteristicRead(bluetoothCentral, characteristic)
                     Objects.requireNonNull(response, "no valid ReadResponse returned")
                     status = response.status
-                    currentReadValue = response.value!!
+                    currentReadValue = response.value
                 }
 
                 // Get the byte array starting at the offset
-                val value = chopValue(currentReadValue, offset)
-                bluetoothGattServer.sendResponse(device, requestId, status.value, offset, value)
+                if (offset < currentReadValue.size) {
+                    val value = chopValue(currentReadValue, offset)
+                    bluetoothGattServer.sendResponse(device, requestId, status.value, offset, value)
+                } else {
+                    bluetoothGattServer.sendResponse(device, requestId, GattStatus.INVALID_OFFSET.value, offset, ByteArray(0))
+                }
             }
         }
 
@@ -310,7 +314,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                 mainHandler.post {
                     var status = GattStatus.SUCCESS
                     if (writeLongCharacteristicTemporaryBytes.isNotEmpty()) {
-                        val characteristic = writeLongCharacteristicTemporaryBytes.keys.iterator().next()
+                        val characteristic = writeLongCharacteristicTemporaryBytes.keys.iterator().next()  // TODO improve this
                         if (characteristic != null) {
                             // Ask callback if value is ok or not
                             status = callback.onCharacteristicWrite(bluetoothCentral, characteristic, writeLongCharacteristicTemporaryBytes[characteristic]!!)
@@ -334,6 +338,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                                     descriptor.value = value
                                 }
                                 writeLongDescriptorTemporaryBytes.clear()
+                                callback.onDescriptorWriteCompleted(bluetoothCentral, descriptor, value!!)
                             }
                         }
                     }
@@ -555,7 +560,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
      */
     fun cancelConnection(bluetoothCentral: BluetoothCentral) {
         Objects.requireNonNull(bluetoothCentral, CENTRAL_IS_NULL)
-        cancelConnection(bluetoothAdapter.getRemoteDevice(bluetoothCentral.address))
+        cancelConnection(bluetoothCentral.device)
     }
 
     private fun cancelConnection(bluetoothDevice: BluetoothDevice) {
@@ -688,7 +693,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         var choppedValue = ByteArray(0)
         if (value == null) return choppedValue
         if (offset <= value.size) {
-            choppedValue = Arrays.copyOfRange(value, offset, value.size)
+            choppedValue = value.copyOfRange(offset, value.size)
         }
         return choppedValue
     }
@@ -783,7 +788,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
 
     companion object {
         private val TAG = BluetoothPeripheralManager::class.java.simpleName
-        protected val CCC_DESCRIPTOR_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        internal val CCC_DESCRIPTOR_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         private const val CONTEXT_IS_NULL = "context is null"
         private const val BLUETOOTH_MANAGER_IS_NULL = "BluetoothManager is null"
         private const val SERVICE_IS_NULL = "service is null"
