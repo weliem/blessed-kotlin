@@ -328,6 +328,33 @@ fun byteArrayOf(hexString: String): ByteArray {
     return result
 }
 
+fun dateTimeByteArrayOf(calendar: Calendar): ByteArray {
+    val value = ByteArray(7)
+    value[0] = calendar[Calendar.YEAR].toByte()
+    value[1] = (calendar[Calendar.YEAR] shr 8).toByte()
+    value[2] = (calendar[Calendar.MONTH] + 1).toByte()
+    value[3] = calendar[Calendar.DATE].toByte()
+    value[4] = calendar[Calendar.HOUR_OF_DAY].toByte()
+    value[5] = calendar[Calendar.MINUTE].toByte()
+    value[6] = calendar[Calendar.SECOND].toByte()
+    return value
+}
+
+fun currentTimeByteArrayOf(calendar: Calendar): ByteArray {
+    val value = ByteArray(10)
+    value[0] = calendar[Calendar.YEAR].toByte()
+    value[1] = (calendar[Calendar.YEAR] shr 8).toByte()
+    value[2] = (calendar[Calendar.MONTH] + 1).toByte()
+    value[3] = calendar[Calendar.DATE].toByte()
+    value[4] = calendar[Calendar.HOUR_OF_DAY].toByte()
+    value[5] = calendar[Calendar.MINUTE].toByte()
+    value[6] = calendar[Calendar.SECOND].toByte()
+    value[7] = ((calendar[Calendar.DAY_OF_WEEK] + 5) % 7 + 1).toByte()
+    value[8] = (calendar[Calendar.MILLISECOND] * 256 / 1000).toByte()
+    value[9] = 1
+    return value
+}
+
 fun mergeArrays(vararg arrays: ByteArray): ByteArray {
     var size = 0
     for (array in arrays) {

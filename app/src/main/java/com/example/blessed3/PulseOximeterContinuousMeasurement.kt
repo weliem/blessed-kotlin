@@ -3,8 +3,11 @@ package com.example.blessed3
 import com.welie.blessed.BluetoothBytesParser
 import java.nio.ByteOrder
 import java.nio.ByteOrder.LITTLE_ENDIAN
+import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
+import java.util.Locale
 
 data class PulseOximeterContinuousMeasurement(
     val spO2: Double,
@@ -18,6 +21,10 @@ data class PulseOximeterContinuousMeasurement(
     val sensorStatus: UInt?,
     val createdAt: Date = Calendar.getInstance().time
 ) {
+    override fun toString(): String {
+        return "${"%.1f".format(spO2)} %%"
+    }
+
     companion object {
         fun fromBytes(value: ByteArray): PulseOximeterContinuousMeasurement? {
             val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)

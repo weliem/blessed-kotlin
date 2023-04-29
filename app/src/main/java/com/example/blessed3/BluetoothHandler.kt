@@ -6,6 +6,7 @@ import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import com.welie.blessed.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.nio.ByteOrder
+import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.*
 
 
@@ -72,15 +76,33 @@ object BluetoothHandler {
     private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
             peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
-            peripheral.setPreferredPhy(PhyType.LE_2M, PhyType.LE_2M, PhyOptions.S2)
             peripheral.readCharacteristic(DIS_SERVICE_UUID, MANUFACTURER_NAME_CHARACTERISTIC_UUID)
             peripheral.readCharacteristic(DIS_SERVICE_UUID, MODEL_NUMBER_CHARACTERISTIC_UUID)
+
+            // Write Current Time if possible
+            peripheral.getCharacteristic(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)?.let {
+                // If it has the write property we write the current time
+                if (it.supportsWritingWithResponse()) {
+                    // Write the current time unless it is an Omron device
+                    if (!peripheral.name.contains("BLEsmart_", true)) {
+                        val currentTime = currentTimeByteArrayOf(Calendar.getInstance())
+                        peripheral.writeCharacteristic(it, currentTime, WriteType.WITH_RESPONSE)
+                    }
+                }
+            }
+
+            peripheral.startNotify(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID)
+            peripheral.startNotify(BLP_SERVICE_UUID, BLP_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)
             peripheral.startNotify(HTS_SERVICE_UUID, HTS_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(HRS_SERVICE_UUID, HRS_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(PLX_SERVICE_UUID, PLX_SPOT_MEASUREMENT_CHAR_UUID)
+            peripheral.startNotify(PLX_SERVICE_UUID, PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID)
+            peripheral.startNotify(WSS_SERVICE_UUID, WSS_MEASUREMENT_CHAR_UUID)
         }
 
         override fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
-            Timber.i("Got ${value.asHexString()}")
-
             when(characteristic.uuid) {
                 MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
                     Timber.i("Manufacturer: ${value.getString()}")
@@ -88,9 +110,40 @@ object BluetoothHandler {
                 MODEL_NUMBER_CHARACTERISTIC_UUID -> {
                     Timber.i("Model: ${value.getString()}")
                 }
+                BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
+                    Timber.i("Battery: ${value.getString()}")
+                }
+                CURRENT_TIME_CHARACTERISTIC_UUID -> {
+                    val currentTime = BluetoothBytesParser(value).getDateTime()
+                    val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+                    Timber.i("Current time: ${dateFormat.format(currentTime)}")
+                }
                 HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = TemperatureMeasurement.fromBytes(value) ?: return
-                    Timber.i(measurement.toString())
+                    sendMeasurement(measurement.toString())
+                }
+                WSS_MEASUREMENT_CHAR_UUID -> {
+                    val measurement = WeightMeasurement.fromBytes(value) ?: return
+                    sendMeasurement(measurement.toString())
+                }
+                PLX_SPOT_MEASUREMENT_CHAR_UUID -> {
+                    val measurement = PulseOximeterSpotMeasurement.fromBytes(value) ?: return
+                    sendMeasurement(measurement.toString())
+                }
+                PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID -> {
+                    val measurement = PulseOximeterContinuousMeasurement.fromBytes(value) ?: return
+                    sendMeasurement(measurement.toString())
+                }
+                BLP_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = BloodPressureMeasurement.fromBytes(value) ?: return
+                    sendMeasurement(measurement.toString())
+                }
+                GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = GlucoseMeasurement.fromBytes(value) ?: return
+                    sendMeasurement(measurement.toString())
+                }
+                HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = HeartRateMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
                 }
             }
@@ -98,8 +151,27 @@ object BluetoothHandler {
 
         fun sendMeasurement(value: String) {
             scope.launch {
+                Timber.i(value)
                 _measurementFlow.emit(value)
             }
+        }
+
+        private fun writeContourClock(peripheral: BluetoothPeripheral) {
+            val calendar = Calendar.getInstance()
+            val offsetInMinutes = calendar.timeZone.rawOffset / 60000
+            calendar.timeZone = TimeZone.getTimeZone("UTC")
+
+            val builder = BluetoothBytesBuilder(10u, ByteOrder.LITTLE_ENDIAN)
+            builder.addUInt8(1u)
+            builder.addUInt16(calendar[Calendar.YEAR])
+            builder.addUInt8(calendar[Calendar.MONTH] + 1)
+            builder.addUInt8(calendar[Calendar.DAY_OF_MONTH])
+            builder.addUInt8(calendar[Calendar.HOUR_OF_DAY])
+            builder.addUInt8(calendar[Calendar.MINUTE])
+            builder.addUInt8(calendar[Calendar.SECOND])
+            builder.addInt16(offsetInMinutes)
+
+            peripheral.writeCharacteristic(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK, builder.bytes, WriteType.WITH_RESPONSE)
         }
     }
 
@@ -112,16 +184,27 @@ object BluetoothHandler {
 
         override fun onConnectedPeripheral(peripheral: BluetoothPeripheral) {
             Timber.i("connected to '${peripheral.name}'")
+            Toast.makeText(context, "Connected to ${peripheral.name}", Toast.LENGTH_SHORT).show()
         }
 
         override fun onDisconnectedPeripheral(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.i("disconnected '${peripheral.name}'")
+            Toast.makeText(context, "Disonnected ${peripheral.name}", Toast.LENGTH_SHORT).show()
             handler.postDelayed({ centralManager.autoConnectPeripheral(peripheral, bluetoothPeripheralCallback) }, 5000)
         }
     }
 
     fun startScanning() {
-        centralManager.scanForPeripheralsWithServices(arrayOf(HTS_SERVICE_UUID))
+        centralManager.scanForPeripheralsWithServices(
+            arrayOf(
+                BLP_SERVICE_UUID,
+                GLUCOSE_SERVICE_UUID,
+                HRS_SERVICE_UUID,
+                HTS_SERVICE_UUID,
+                PLX_SERVICE_UUID,
+                WSS_SERVICE_UUID
+            )
+        )
     }
 
     fun initialize(context: Context) {

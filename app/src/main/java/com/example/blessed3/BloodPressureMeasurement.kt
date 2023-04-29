@@ -3,8 +3,11 @@ package com.example.blessed3
 
 import com.welie.blessed.BluetoothBytesParser
 import java.nio.ByteOrder.LITTLE_ENDIAN
+import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
+import java.util.Locale
 
 data class BloodPressureMeasurement(
     val systolic: Double,
@@ -17,6 +20,12 @@ data class BloodPressureMeasurement(
     val measurementStatus: BloodPressureMeasurementStatus?,
     val createdAt: Date = Calendar.getInstance().time
 ) {
+
+    override fun toString(): String {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+        return "${"%.0f".format(systolic)}/${"%.0f".format(diastolic)} $unit \n at ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
     companion object {
         fun fromBytes(value: ByteArray): BloodPressureMeasurement? {
             val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)

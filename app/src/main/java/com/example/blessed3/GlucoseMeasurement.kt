@@ -6,6 +6,9 @@ import java.util.Date
 import java.util.Calendar
 import com.example.blessed3.ObservationUnit.MiligramPerDeciliter
 import com.example.blessed3.ObservationUnit.MmolPerLiter
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 data class GlucoseMeasurement(
     val value: Double?,
@@ -15,6 +18,11 @@ data class GlucoseMeasurement(
     val contextWillFollow: Boolean,
     val createdAt: Date = Calendar.getInstance().time
 ) {
+    override fun toString(): String {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+        return "${"%.0f".format(value)} $unit \n at ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
     companion object {
         fun fromBytes(value: ByteArray): GlucoseMeasurement? {
             val parser = BluetoothBytesParser(value, 0 , LITTLE_ENDIAN)

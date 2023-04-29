@@ -4,8 +4,11 @@ import com.welie.blessed.BluetoothBytesParser
 import com.example.blessed3.ObservationUnit.Kilograms
 import com.example.blessed3.ObservationUnit.Pounds
 import java.nio.ByteOrder
+import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
+import java.util.Locale
 import kotlin.math.round
 
 data class WeightMeasurement(
@@ -17,6 +20,11 @@ data class WeightMeasurement(
     val heightInMetersOrInches: Double?,
     val createdAt: Date = Calendar.getInstance().time
 ) {
+    override fun toString(): String {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+        return "${"%.1f".format(weight)} $unit \n at ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
     companion object {
         fun fromBytes(value: ByteArray): WeightMeasurement? {
             val parser = BluetoothBytesParser(value, 0, ByteOrder.LITTLE_ENDIAN)

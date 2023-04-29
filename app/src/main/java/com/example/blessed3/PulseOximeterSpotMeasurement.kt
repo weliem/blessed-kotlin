@@ -2,8 +2,11 @@ package com.example.blessed3
 
 import com.welie.blessed.BluetoothBytesParser
 import java.nio.ByteOrder.LITTLE_ENDIAN
+import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
+import java.util.Locale
 
 data class PulseOximeterSpotMeasurement(
     val spO2: Double,
@@ -15,6 +18,11 @@ data class PulseOximeterSpotMeasurement(
     val sensorStatus: UInt?,
     val createdAt: Date = Calendar.getInstance().time
 ) {
+    override fun toString(): String {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+        return "${"%.1f".format(spO2)} %% \n at ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
     companion object {
         fun fromBytes(value: ByteArray): PulseOximeterSpotMeasurement? {
             val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
