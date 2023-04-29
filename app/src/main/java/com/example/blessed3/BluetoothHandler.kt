@@ -7,6 +7,12 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.welie.blessed.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.*
 
@@ -17,6 +23,9 @@ object BluetoothHandler {
     private lateinit var context: Context
     lateinit var centralManager: BluetoothCentralManager
     private val handler = Handler(Looper.getMainLooper())
+    private val _measurementFlow = MutableStateFlow("Waiting for measurement")
+    val measurementFlow = _measurementFlow.asStateFlow()
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // UUIDs for the Blood Pressure service (BLP)
     private val BLP_SERVICE_UUID: UUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
@@ -82,7 +91,14 @@ object BluetoothHandler {
                 HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = TemperatureMeasurement.fromBytes(value) ?: return
                     Timber.i(measurement.toString())
+                    sendMeasurement(measurement.toString())
                 }
+            }
+        }
+
+        fun sendMeasurement(value: String) {
+            scope.launch {
+                _measurementFlow.emit(value)
             }
         }
     }

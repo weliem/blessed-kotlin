@@ -9,6 +9,8 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -16,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import com.example.blessed3.ui.theme.Blessed3Theme
+import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
@@ -29,9 +32,12 @@ class MainActivity : ComponentActivity() {
                 Column(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
-                    Text("Android", fontSize = 30.sp)
-                    Text("Android en nog iets")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()) {
+
+                    val measurementText = BluetoothHandler.measurementFlow.collectAsState()
+                    Text(text = measurementText.value, fontSize = 24.sp)
                 }
             }
         }
@@ -75,5 +81,7 @@ fun Greeting(name: String) {
 fun DefaultPreview() {
     Blessed3Theme {
         Greeting("Android")
+
+
     }
 }
