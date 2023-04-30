@@ -32,7 +32,7 @@ data class BloodPressureMeasurement(
 
             try {
                 val flags = parser.getUInt8()
-                val unit = if (flags and 0x01u > 0u) ObservationUnit.MMHG else ObservationUnit.KPA
+                val unit = if (flags and 0x01u > 0u) ObservationUnit.KPA else ObservationUnit.MMHG
                 val timestampPresent = flags and 0x02u > 0u
                 val pulseRatePresent = flags and 0x04u > 0u
                 val userIdPresent = flags and 0x08u > 0u

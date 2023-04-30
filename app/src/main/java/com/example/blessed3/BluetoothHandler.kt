@@ -96,7 +96,7 @@ object BluetoothHandler {
                 }
             }
 
-            peripheral.startNotify(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID)
+            peripheral.readCharacteristic(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID)
             peripheral.startNotify(BLP_SERVICE_UUID, BLP_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(HTS_SERVICE_UUID, HTS_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(HRS_SERVICE_UUID, HRS_MEASUREMENT_CHARACTERISTIC_UUID)
@@ -132,7 +132,7 @@ object BluetoothHandler {
                 }
 
                 BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
-                    Timber.i("Battery: ${value.getString()}")
+                    Timber.i("Battery: ${value.getUInt8()}")
                 }
 
                 CURRENT_TIME_CHARACTERISTIC_UUID -> {
@@ -217,12 +217,17 @@ object BluetoothHandler {
             Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
             centralManager.stopScan()
 
-            if (peripheral.name.contains("Contour") && peripheral.bondState === BondState.NONE) {
+            if (needsBonding(peripheral) && peripheral.bondState === BondState.NONE) {
                 // Create a bond immediately to avoid double pairing popups
                 centralManager.createBond(peripheral, bluetoothPeripheralCallback)
             } else {
                 centralManager.connectPeripheral(peripheral, bluetoothPeripheralCallback)
             }
+        }
+
+        fun needsBonding(peripheral: BluetoothPeripheral): Boolean {
+            return peripheral.name.startsWith("Contour") ||
+                    peripheral.name.startsWith("A&D")
         }
 
         override fun onConnectedPeripheral(peripheral: BluetoothPeripheral) {

@@ -16,7 +16,6 @@ data class HeartRateMeasurement(
     val createdAt: Date = Calendar.getInstance().time
 ) {
     override fun toString(): String {
-        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         return "$pulse bpm"
     }
 
