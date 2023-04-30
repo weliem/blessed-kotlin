@@ -447,6 +447,11 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     val isScanning: Boolean
         get() = bluetoothScanner != null && currentCallback != null
 
+    /**
+     * Check if a scanning is NOT active
+     *
+     * @return true if a scan is not active, otherwise false
+     */
     val isNotScanning: Boolean
         get() = !isScanning
 

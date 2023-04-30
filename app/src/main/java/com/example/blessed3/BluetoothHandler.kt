@@ -30,8 +30,8 @@ object BluetoothHandler {
     private lateinit var context: Context
     lateinit var centralManager: BluetoothCentralManager
     private val handler = Handler(Looper.getMainLooper())
-    private val _measurementFlow = MutableStateFlow("Waiting for measurement")
-    val measurementFlow = _measurementFlow.asStateFlow()
+    private val measurementFlow_ = MutableStateFlow("Waiting for measurement")
+    val measurementFlow = measurementFlow_.asStateFlow()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // UUIDs for the Blood Pressure service (BLP)
@@ -70,7 +70,6 @@ object BluetoothHandler {
     val GLUCOSE_SERVICE_UUID: UUID = UUID.fromString("00001808-0000-1000-8000-00805f9b34fb")
     val GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A18-0000-1000-8000-00805f9b34fb")
     val GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A52-0000-1000-8000-00805f9b34fb")
-    val GLUCOSE_MEASUREMENT_CONTEXT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A34-0000-1000-8000-00805f9b34fb")
 
     // Contour Glucose Service
     val CONTOUR_SERVICE_UUID: UUID = UUID.fromString("00000000-0002-11E2-9E96-0800200C9A66")
@@ -181,7 +180,7 @@ object BluetoothHandler {
         fun sendMeasurement(value: String) {
             scope.launch {
                 Timber.i(value)
-                _measurementFlow.emit(value)
+                measurementFlow_.emit(value)
             }
         }
 
@@ -205,9 +204,9 @@ object BluetoothHandler {
         }
 
         private fun writeGetAllGlucoseMeasurements(peripheral: BluetoothPeripheral) {
-            val OP_CODE_REPORT_STORED_RECORDS: Byte = 1
-            val OPERATOR_ALL_RECORDS: Byte = 1
-            val command = byteArrayOf(OP_CODE_REPORT_STORED_RECORDS, OPERATOR_ALL_RECORDS)
+            val opCodeReportStoredRecords: Byte = 1
+            val operatorAllRecords: Byte = 1
+            val command = byteArrayOf(opCodeReportStoredRecords, operatorAllRecords)
             peripheral.writeCharacteristic(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, command, WITH_RESPONSE)
         }
     }
@@ -278,6 +277,7 @@ object BluetoothHandler {
 }
 
 // Peripheral extension to check if the peripheral needs to be bonded first
+// This is application specific of course
 fun BluetoothPeripheral.needsBonding(): Boolean {
     return name.startsWith("Contour") ||
             name.startsWith("A&D")
