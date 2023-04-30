@@ -22,8 +22,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
-    private val BLE_PERMISSION_REQUEST = 2
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -45,6 +43,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        restartScanning()
+    }
+
+    private fun restartScanning() {
         if (permissionsGranted()) {
             BluetoothHandler.startScanning()
         } else {
@@ -52,9 +54,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var permissionRequestInProgress = false
     fun requestPermissions()  {
         val missingPermissions = BluetoothHandler.centralManager.getMissingPermissions()
-        if (missingPermissions.isNotEmpty()) {
+        if (missingPermissions.isNotEmpty() && !permissionRequestInProgress) {
+            permissionRequestInProgress = true
             blePermissionRequest.launch(missingPermissions)
         }
     }
@@ -65,6 +69,7 @@ class MainActivity : ComponentActivity() {
 
     private val blePermissionRequest =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            permissionRequestInProgress = false
             permissions.entries.forEach {
                 Timber.d("${it.key} = ${it.value}")
             }
@@ -81,7 +86,5 @@ fun Greeting(name: String) {
 fun DefaultPreview() {
     Blessed3Theme {
         Greeting("Android")
-
-
     }
 }

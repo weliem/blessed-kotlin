@@ -447,6 +447,9 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     val isScanning: Boolean
         get() = bluetoothScanner != null && currentCallback != null
 
+    val isNotScanning: Boolean
+        get() = !isScanning
+
     /**
      * Connect to a known peripheral immediately. The peripheral must have been found by scanning for this call to succeed. This method will time out in max 30 seconds on most phones and in 5 seconds on Samsung phones.
      * If the peripheral is already connected, no connection attempt will be made. This method is asynchronous and there can be only one outstanding connect.

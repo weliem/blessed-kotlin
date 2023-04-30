@@ -217,17 +217,12 @@ object BluetoothHandler {
             Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
             centralManager.stopScan()
 
-            if (needsBonding(peripheral) && peripheral.bondState === BondState.NONE) {
+            if (peripheral.needsBonding() && peripheral.bondState == BondState.NONE) {
                 // Create a bond immediately to avoid double pairing popups
                 centralManager.createBond(peripheral, bluetoothPeripheralCallback)
             } else {
                 centralManager.connectPeripheral(peripheral, bluetoothPeripheralCallback)
             }
-        }
-
-        fun needsBonding(peripheral: BluetoothPeripheral): Boolean {
-            return peripheral.name.startsWith("Contour") ||
-                    peripheral.name.startsWith("A&D")
         }
 
         override fun onConnectedPeripheral(peripheral: BluetoothPeripheral) {
@@ -240,7 +235,7 @@ object BluetoothHandler {
             Toast.makeText(context, "Disonnected ${peripheral.name}", LENGTH_SHORT).show()
             handler.postDelayed(
                 { centralManager.autoConnectPeripheral(peripheral, bluetoothPeripheralCallback) },
-                5000
+                15000
             )
         }
 
@@ -260,16 +255,18 @@ object BluetoothHandler {
     }
 
     fun startScanning() {
-        centralManager.scanForPeripheralsWithServices(
-            arrayOf(
-                BLP_SERVICE_UUID,
-                GLUCOSE_SERVICE_UUID,
-                HRS_SERVICE_UUID,
-                HTS_SERVICE_UUID,
-                PLX_SERVICE_UUID,
-                WSS_SERVICE_UUID
+        if(centralManager.isNotScanning) {
+            centralManager.scanForPeripheralsWithServices(
+                arrayOf(
+                    BLP_SERVICE_UUID,
+                    GLUCOSE_SERVICE_UUID,
+                    HRS_SERVICE_UUID,
+                    HTS_SERVICE_UUID,
+                    PLX_SERVICE_UUID,
+                    WSS_SERVICE_UUID
+                )
             )
-        )
+        }
     }
 
     fun initialize(context: Context) {
@@ -278,4 +275,10 @@ object BluetoothHandler {
         this.context = context.applicationContext
         this.centralManager = BluetoothCentralManager(this.context, bluetoothCentralManagerCallback, handler)
     }
+}
+
+// Peripheral extension to check if the peripheral needs to be bonded first
+fun BluetoothPeripheral.needsBonding(): Boolean {
+    return name.startsWith("Contour") ||
+            name.startsWith("A&D")
 }
