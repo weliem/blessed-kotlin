@@ -5,20 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.ActivityCompat
 import com.example.blessed3.ui.theme.Blessed3Theme
-import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
@@ -55,7 +47,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private var permissionRequestInProgress = false
-    fun requestPermissions()  {
+    private fun requestPermissions()  {
         val missingPermissions = BluetoothHandler.centralManager.getMissingPermissions()
         if (missingPermissions.isNotEmpty() && !permissionRequestInProgress) {
             permissionRequestInProgress = true
@@ -63,7 +55,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun permissionsGranted() : Boolean {
+    private fun permissionsGranted() : Boolean {
         return BluetoothHandler.centralManager.getMissingPermissions().isEmpty()
     }
 
@@ -74,17 +66,4 @@ class MainActivity : ComponentActivity() {
                 Timber.d("${it.key} = ${it.value}")
             }
         }
-}
-
-@Composable
-fun Greeting(name: String) {
-    Text(text = "Hello $name!")
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    Blessed3Theme {
-        Greeting("Android")
-    }
 }
