@@ -34,13 +34,13 @@ class BluetoothBytesParser (
     var byteOrder: ByteOrder = LITTLE_ENDIAN
 ) {
     fun getUInt8() : UInt {
-        val result = value[offset].toUInt()
+        val result = value.getUInt8(offset.toUInt())
         offset += 1
         return result
     }
 
     fun getInt8() : Int {
-        val result = value[offset].toInt()
+        val result = value.getInt8(offset.toUInt())
         offset += 1
         return result
     }

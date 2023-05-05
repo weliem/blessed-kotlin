@@ -46,6 +46,14 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
         return append(value.asInt32(byteOrder))
     }
 
+    fun addSFloat(value: Double, precision: Int): BluetoothBytesBuilder {
+        return append(value.asSFloat(precision, byteOrder))
+    }
+
+    fun addFloat(value: Double, precision: Int): BluetoothBytesBuilder {
+        return append(value.asFloat(precision, byteOrder))
+    }
+
     fun append(byteArray: ByteArray): BluetoothBytesBuilder {
         val length = byteArray.size
         prepareArray(offset + length)
