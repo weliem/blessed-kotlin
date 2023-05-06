@@ -83,13 +83,25 @@ class BluetoothBytesParser (
 
     fun getUInt48() : ULong {
         val result = value.getUInt48(offset.toUInt(), byteOrder)
-        offset += 4
+        offset += 6
         return result
     }
 
     fun getInt48() : Long {
         val result = value.getInt48(offset.toUInt(), byteOrder)
-        offset += 4
+        offset += 6
+        return result
+    }
+
+    fun getUInt64() : ULong {
+        val result = value.getUInt64(offset.toUInt(), byteOrder)
+        offset += 8
+        return result
+    }
+
+    fun getInt64() : Long {
+        val result = value.getInt64(offset.toUInt(), byteOrder)
+        offset += 8
         return result
     }
 

@@ -23,6 +23,9 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
     }
 
     fun addUInt16(value: Int): BluetoothBytesBuilder {
+        if (value > Short.MAX_VALUE)
+            throw IllegalArgumentException("value is larger than ${Short.MAX_VALUE}")
+
         return addUInt16(value.toUInt())
     }
 
@@ -32,6 +35,17 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
 
     fun addInt16(value: Int): BluetoothBytesBuilder {
         return append(value.asInt16(byteOrder))
+    }
+
+    fun addUInt24(value: Int): BluetoothBytesBuilder {
+        return append(value.toUInt().asUInt24(byteOrder))
+    }
+    fun addUInt24(value: UInt): BluetoothBytesBuilder {
+        return append(value.asUInt24(byteOrder))
+    }
+
+    fun addInt24(value: Int): BluetoothBytesBuilder {
+        return append(value.asInt24(byteOrder))
     }
 
     fun addUInt32(value: Int): BluetoothBytesBuilder {
@@ -44,6 +58,30 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
 
     fun addInt32(value: Int): BluetoothBytesBuilder {
         return append(value.asInt32(byteOrder))
+    }
+
+    fun addUInt48(value: Long): BluetoothBytesBuilder {
+        return addUInt48(value.toULong())
+    }
+
+    fun addUInt48(value: ULong): BluetoothBytesBuilder {
+        return append(value.asUInt48(byteOrder))
+    }
+
+    fun addInt48(value: Long): BluetoothBytesBuilder {
+        return append(value.asInt48(byteOrder))
+    }
+
+    fun addUInt64(value: Long): BluetoothBytesBuilder {
+        return addUInt64(value.toULong())
+    }
+
+    fun addUInt64(value: ULong): BluetoothBytesBuilder {
+        return append(value.asUInt64(byteOrder))
+    }
+
+    fun addInt64(value: Long): BluetoothBytesBuilder {
+        return append(value.asInt64(byteOrder))
     }
 
     fun addSFloat(value: Double, precision: Int): BluetoothBytesBuilder {
