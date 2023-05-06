@@ -17,8 +17,8 @@ data class PulseOximeterContinuousMeasurement(
     val spO2Slow: Double?,
     val pulseRateSlow: Double?,
     val pulseAmplitudeIndex: Double?,
-    val measurementStatus: UInt?,
-    val sensorStatus: UInt?,
+    val measurementStatus: UShort?,
+    val sensorStatus: UShort?,
     val createdAt: Date = Calendar.getInstance().time
 ) {
     override fun toString(): String {

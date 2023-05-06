@@ -9,8 +9,8 @@ import java.util.Calendar
 import java.util.Locale
 
 data class HeartRateMeasurement(
-    val pulse: UInt,
-    val energyExpended: UInt?,
+    val pulse: UShort,
+    val energyExpended: UShort?,
     val rrIntervals: IntArray,
     val sensorContactStatus: SensorContactFeature,
     val createdAt: Date = Calendar.getInstance().time
@@ -25,7 +25,7 @@ data class HeartRateMeasurement(
 
             try {
                 val flags = parser.getUInt8()
-                val pulse = if (flags and 0x01u == 0u) parser.getUInt8() else parser.getUInt16()
+                val pulse = if (flags and 0x01u == 0u) parser.getUInt8().toUShort() else parser.getUInt16()
                 val sensorContactStatusFlag = flags and 0x06u shr 1
                 val energyExpenditurePresent = flags and 0x08u > 0u
                 val rrIntervalPresent = flags and 0x10u > 0u

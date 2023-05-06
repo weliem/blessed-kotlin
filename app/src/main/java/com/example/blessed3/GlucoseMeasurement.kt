@@ -14,7 +14,7 @@ data class GlucoseMeasurement(
     val value: Double?,
     val unit: ObservationUnit,
     val timestamp: Date?,
-    val sequenceNumber: UInt,
+    val sequenceNumber: UShort,
     val contextWillFollow: Boolean,
     val createdAt: Date = Calendar.getInstance().time
 ) {
@@ -37,7 +37,7 @@ data class GlucoseMeasurement(
                 val sequenceNumber = parser.getUInt16()
                 var timestamp = parser.getDateTime()
                 if (timeOffsetPresent) {
-                    val timeOffset: Int = parser.getInt16()
+                    val timeOffset: Int = parser.getInt16().toInt()
                     timestamp = Date(timestamp.time + timeOffset * 60000)
                 }
 

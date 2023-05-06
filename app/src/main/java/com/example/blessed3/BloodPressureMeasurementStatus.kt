@@ -1,6 +1,6 @@
 package com.example.blessed3
 
-class BloodPressureMeasurementStatus internal constructor(measurementStatus: UInt) {
+class BloodPressureMeasurementStatus internal constructor(measurementStatus: UShort) {
     /**
      * Body Movement Detected
      */

@@ -14,8 +14,8 @@ data class PulseOximeterSpotMeasurement(
     val pulseAmplitudeIndex: Double?,
     val timestamp: Date?,
     val isDeviceClockSet: Boolean,
-    val measurementStatus: UInt?,
-    val sensorStatus: UInt?,
+    val measurementStatus: UShort?,
+    val sensorStatus: UShort?,
     val createdAt: Date = Calendar.getInstance().time
 ) {
     override fun toString(): String {
