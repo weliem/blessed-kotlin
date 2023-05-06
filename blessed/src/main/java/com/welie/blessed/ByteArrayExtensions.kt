@@ -216,59 +216,51 @@ fun byteArrayOf(value: ULong, length: UInt, order: ByteOrder = LITTLE_ENDIAN): B
     return result
 }
 
-fun UShort.asUInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this.toUInt(), 2u, order)
+fun UShort.asByteArray(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toULong(), 2u, order)
 }
 
-fun Short.asInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this.toInt(), 2u, order)
+fun Short.asByteArray(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toLong(), 2u, order)
 }
 
-fun UInt.asUInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 2u, order)
+fun UInt.asByteArray(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toULong(), 4u, order)
 }
 
-fun UInt.asUInt24(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 3u, order)
+fun Int.asByteArray(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toLong(), 4u, order)
 }
 
-fun UInt.asUInt32(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 4u, order)
-}
-
-fun ULong.asUInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 6u, order)
-}
-
-fun ULong.asUInt64(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+fun ULong.asByteArray(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 8u, order)
 }
 
-fun Int.asInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 2u, order)
-}
-
-fun Int.asInt24(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 3u, order)
-}
-
-fun Int.asInt32(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 4u, order)
-}
-
-fun Long.asInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
-    return byteArrayOf(this, 6u, order)
-}
-
-fun Long.asInt64(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+fun Long.asByteArray(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 8u, order)
 }
 
-fun Double.asSFloat(precision: Int, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+fun UInt.asByteArrayOfUInt24(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toULong(), 3u, order)
+}
+
+fun Int.asByteArrayOfInt24(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toLong(), 3u, order)
+}
+
+fun ULong.asByteArrayOfUInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 6u, order)
+}
+
+fun Long.asByteArrayOfInt48(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this, 6u, order)
+}
+
+fun Double.asByteArrayOfSFloat(precision: Int, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 2u, precision, order)
 }
 
-fun Double.asFloat(precision: Int, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+fun Double.asByteArrayOfFloat(precision: Int, order: ByteOrder = LITTLE_ENDIAN): ByteArray {
     return byteArrayOf(this, 4u, precision, order)
 }
 

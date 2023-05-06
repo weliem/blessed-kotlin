@@ -4,7 +4,7 @@ import org.junit.Test
 import org.junit.Assert.*
 import java.nio.ByteOrder.LITTLE_ENDIAN
 
-class BuetoothBytesBuilderTests {
+class BuetoothBytesBuilderParserTests {
 
     @Test
     fun `Adding two int8 values`() {
@@ -231,7 +231,7 @@ class BuetoothBytesBuilderTests {
 
         val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
         assertEquals(number1, parser.getSFloat(), 0.1)
-        assertEquals(number2, parser.getSFloat(),  0.01)
+        assertEquals(number2, parser.getSFloat(), 0.01)
     }
 
     @Test
@@ -249,7 +249,7 @@ class BuetoothBytesBuilderTests {
 
         val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
         assertEquals(number1, parser.getFloat(), 0.1)
-        assertEquals(number2, parser.getFloat(),  0.01)
+        assertEquals(number2, parser.getFloat(), 0.01)
     }
 
     @Test
@@ -270,6 +270,6 @@ class BuetoothBytesBuilderTests {
         assertEquals(253u, parser.getUInt8())
         assertEquals(6666u.toUShort(), parser.getUInt16())
         assertEquals(-6.66, parser.getSFloat(), 0.01)
-        assertEquals(-1799215504984381689, parser.getInt64() )
+        assertEquals(-1799215504984381689, parser.getInt64())
     }
 }

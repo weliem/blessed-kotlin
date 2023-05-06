@@ -12,18 +12,19 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
 
     fun addInt8(value: Int): BluetoothBytesBuilder {
         require(value <= Byte.MAX_VALUE) { "value cannot be larger than ${Byte.MAX_VALUE}" }
+        require(value >= Byte.MIN_VALUE) { "value must be larger than ${Byte.MIN_VALUE}" }
         return append(byteArrayOf(value.toByte()))
     }
 
     fun addUInt8(value: Int): BluetoothBytesBuilder {
         require(value >= 0) { "unsigned values cannot be negative" }
         require(value <= UByte.MAX_VALUE.toInt()) { "value cannot be larger than ${UByte.MAX_VALUE}" }
-        return append(byteArrayOf((value.toUInt() and 255u).toByte()))
+        return append(byteArrayOf(value.toByte()))
     }
 
     fun addUInt8(value: UInt): BluetoothBytesBuilder {
         require(value <= UByte.MAX_VALUE.toUInt()) { "value cannot be larger than ${UByte.MAX_VALUE}" }
-        return append(byteArrayOf((value and 255u).toByte()))
+        return append(byteArrayOf(value.toByte()))
     }
 
     fun addUInt8(value: Byte): BluetoothBytesBuilder {
@@ -35,91 +36,91 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
     }
 
     fun addUInt16(value: UShort): BluetoothBytesBuilder {
-        return append(value.asUInt16(byteOrder))
+        return append(value.asByteArray(byteOrder))
     }
 
     fun addInt16(value: Short): BluetoothBytesBuilder {
-        return append(value.asInt16(byteOrder))
+        return append(value.asByteArray(byteOrder))
     }
 
     fun addUInt16(value: Int): BluetoothBytesBuilder {
         require(value >= 0) { "unsigned values cannot be negative" }
-        require(value <= UShort.MAX_VALUE.toInt() ) { "value cannot be larger than ${UShort.MAX_VALUE}" }
-        return addUInt16(value.toUInt())
+        require(value <= UShort.MAX_VALUE.toInt()) { "value cannot be larger than ${UShort.MAX_VALUE}" }
+        return addUInt16(value.toUShort())
     }
 
     fun addUInt16(value: UInt): BluetoothBytesBuilder {
-        require(value <= UShort.MAX_VALUE.toUInt() ) { "value cannot be larger than ${UShort.MAX_VALUE}" }
-        return append(value.asUInt16(byteOrder))
+        require(value <= UShort.MAX_VALUE.toUInt()) { "value cannot be larger than ${UShort.MAX_VALUE}" }
+        return addUInt16(value.toUShort())
     }
 
     fun addInt16(value: Int): BluetoothBytesBuilder {
-        require(value <= Short.MAX_VALUE.toInt() ) { "value cannot be larger than ${Short.MAX_VALUE}" }
-        return append(value.asInt16(byteOrder))
+        require(value >= Short.MIN_VALUE.toInt()) { "value must be larger than ${Short.MIN_VALUE}" }
+        require(value <= Short.MAX_VALUE.toInt()) { "value cannot be larger than ${Short.MAX_VALUE}" }
+        return addInt16(value.toShort())
     }
 
     fun addUInt24(value: Int): BluetoothBytesBuilder {
         require(value >= 0) { "unsigned values cannot be negative" }
-        require(value <= UINT24_MAX_VALUE ) { "value cannot be larger than $UINT24_MAX_VALUE" }
-
-        return append(value.toUInt().asUInt24(byteOrder))
+        require(value <= UINT24_MAX_VALUE) { "value cannot be larger than $UINT24_MAX_VALUE" }
+        return addUInt24(value.toUInt())
     }
+
     fun addUInt24(value: UInt): BluetoothBytesBuilder {
-        return append(value.asUInt24(byteOrder))
+        return append(value.asByteArrayOfUInt24(byteOrder))
     }
 
     fun addInt24(value: Int): BluetoothBytesBuilder {
-        return append(value.asInt24(byteOrder))
+        return append(value.asByteArrayOfInt24(byteOrder))
     }
 
     fun addUInt32(value: Int): BluetoothBytesBuilder {
         require(value >= 0) { "unsigned values cannot be negative" }
-        require(value <= UInt.MAX_VALUE.toInt() ) { "value cannot be larger than ${UInt.MAX_VALUE}" }
-
         return addUInt32(value.toUInt())
     }
 
     fun addUInt32(value: UInt): BluetoothBytesBuilder {
-        return append(value.asUInt32(byteOrder))
+        return append(value.asByteArray(byteOrder))
     }
 
     fun addInt32(value: Int): BluetoothBytesBuilder {
-        return append(value.asInt32(byteOrder))
+        return append(value.asByteArray(byteOrder))
     }
 
     fun addUInt48(value: Long): BluetoothBytesBuilder {
         require(value >= 0) { "unsigned values cannot be negative" }
-        require(value <= UINT48_MAX_VALUE ) { "value cannot be larger than $UINT48_MAX_VALUE" }
+        require(value <= UINT48_MAX_VALUE) { "value cannot be larger than $UINT48_MAX_VALUE" }
         return addUInt48(value.toULong())
     }
 
     fun addUInt48(value: ULong): BluetoothBytesBuilder {
-        require(value <= UINT48_MAX_VALUE.toULong() ) { "value cannot be larger than $UINT48_MAX_VALUE" }
-        return append(value.asUInt48(byteOrder))
+        require(value <= UINT48_MAX_VALUE.toULong()) { "value cannot be larger than $UINT48_MAX_VALUE" }
+        return append(value.asByteArrayOfUInt48(byteOrder))
     }
 
     fun addInt48(value: Long): BluetoothBytesBuilder {
-        return append(value.asInt48(byteOrder))
+        return append(value.asByteArrayOfInt48(byteOrder))
     }
 
     fun addUInt64(value: Long): BluetoothBytesBuilder {
+        require(value >= 0) { "unsigned values cannot be negative" }
         return addUInt64(value.toULong())
     }
 
     fun addUInt64(value: ULong): BluetoothBytesBuilder {
-        return append(value.asUInt64(byteOrder))
+        return append(value.asByteArray(byteOrder))
     }
 
     fun addInt64(value: Long): BluetoothBytesBuilder {
-        return append(value.asInt64(byteOrder))
+        return append(value.asByteArray(byteOrder))
     }
 
     fun addSFloat(value: Double, precision: Int): BluetoothBytesBuilder {
-        return append(value.asSFloat(precision, byteOrder))
+        return append(value.asByteArrayOfSFloat(precision, byteOrder))
     }
 
     fun addFloat(value: Double, precision: Int): BluetoothBytesBuilder {
-        return append(value.asFloat(precision, byteOrder))
+        return append(value.asByteArrayOfFloat(precision, byteOrder))
     }
 
     fun append(byteArray: ByteArray): BluetoothBytesBuilder {
@@ -141,5 +142,7 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
     companion object {
         private const val UINT24_MAX_VALUE: Int = 16777215
         private const val UINT48_MAX_VALUE: Long = 281474976710655
+
+        // TODO min/max values for Int24 and Int48
     }
 }
