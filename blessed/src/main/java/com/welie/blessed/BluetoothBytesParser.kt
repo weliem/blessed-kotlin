@@ -45,13 +45,13 @@ class BluetoothBytesParser (
         return result
     }
 
-    fun getUInt16() : UInt {
+    fun getUInt16() : UShort {
         val result = value.getUInt16(offset.toUInt(), byteOrder)
         offset += 2
         return result
     }
 
-    fun getInt16() : Int {
+    fun getInt16() : Short {
         val result = value.getInt16(offset.toUInt(), byteOrder)
         offset += 2
         return result

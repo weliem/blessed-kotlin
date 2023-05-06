@@ -34,6 +34,14 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
         return append(byteArrayOf(value.toByte()))
     }
 
+    fun addUInt16(value: UShort): BluetoothBytesBuilder {
+        return append(value.asUInt16(byteOrder))
+    }
+
+    fun addInt16(value: Short): BluetoothBytesBuilder {
+        return append(value.asInt16(byteOrder))
+    }
+
     fun addUInt16(value: Int): BluetoothBytesBuilder {
         require(value >= 0) { "unsigned values cannot be negative" }
         require(value <= UShort.MAX_VALUE.toInt() ) { "value cannot be larger than ${UShort.MAX_VALUE}" }

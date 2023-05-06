@@ -56,38 +56,38 @@ class ByteArrayExtenstionsTest {
 
     @Test
     fun test_uint16_le() {
-        assertEquals(1799u, byteArrayOf("0707").getUInt16(0u, LITTLE_ENDIAN))
-        assertEquals(59143u, byteArrayOf("07E7").getUInt16(0u, LITTLE_ENDIAN))
-        assertEquals(2023u, byteArrayOf("E707").getUInt16(0u, LITTLE_ENDIAN))
-        assertEquals(59367u, byteArrayOf("E7E7").getUInt16(0u, LITTLE_ENDIAN))
-        assertEquals(65535u, byteArrayOf("FFFF").getUInt16(0u, LITTLE_ENDIAN))
+        assertEquals(1799u.toUShort(), byteArrayOf("0707").getUInt16(0u, LITTLE_ENDIAN))
+        assertEquals(59143u.toUShort(), byteArrayOf("07E7").getUInt16(0u, LITTLE_ENDIAN))
+        assertEquals(2023u.toUShort(), byteArrayOf("E707").getUInt16(0u, LITTLE_ENDIAN))
+        assertEquals(59367u.toUShort(), byteArrayOf("E7E7").getUInt16(0u, LITTLE_ENDIAN))
+        assertEquals(65535u.toUShort(), byteArrayOf("FFFF").getUInt16(0u, LITTLE_ENDIAN))
     }
 
     @Test
     fun test_uint16_be() {
-        assertEquals(1799u, byteArrayOf("0707").getUInt16(0u, BIG_ENDIAN))
-        assertEquals(2023u, byteArrayOf("07E7").getUInt16(0u, BIG_ENDIAN))
-        assertEquals(59143u, byteArrayOf("E707").getUInt16(0u, BIG_ENDIAN))
-        assertEquals(59367u, byteArrayOf("E7E7").getUInt16(0u, BIG_ENDIAN))
-        assertEquals(65535u, byteArrayOf("FFFF").getUInt16(0u, BIG_ENDIAN))
+        assertEquals(1799u.toUShort(), byteArrayOf("0707").getUInt16(0u, BIG_ENDIAN))
+        assertEquals(2023u.toUShort(), byteArrayOf("07E7").getUInt16(0u, BIG_ENDIAN))
+        assertEquals(59143u.toUShort(), byteArrayOf("E707").getUInt16(0u, BIG_ENDIAN))
+        assertEquals(59367u.toUShort(), byteArrayOf("E7E7").getUInt16(0u, BIG_ENDIAN))
+        assertEquals(65535u.toUShort(), byteArrayOf("FFFF").getUInt16(0u, BIG_ENDIAN))
     }
 
     @Test
     fun test_int16_le() {
-        assertEquals(1799, byteArrayOf("0707").getInt16(0u, LITTLE_ENDIAN))
-        assertEquals(-6393, byteArrayOf("07E7").getInt16(0u, LITTLE_ENDIAN))
-        assertEquals(2023, byteArrayOf("E707").getInt16(0u, LITTLE_ENDIAN))
-        assertEquals(-6169, byteArrayOf("E7E7").getInt16(0u, LITTLE_ENDIAN))
-        assertEquals(-1, byteArrayOf("FFFF").getInt16(0u, LITTLE_ENDIAN))
+        assertEquals(1799.toShort(), byteArrayOf("0707").getInt16(0u, LITTLE_ENDIAN))
+        assertEquals((-6393).toShort(), byteArrayOf("07E7").getInt16(0u, LITTLE_ENDIAN))
+        assertEquals((2023).toShort(), byteArrayOf("E707").getInt16(0u, LITTLE_ENDIAN))
+        assertEquals((-6169).toShort(), byteArrayOf("E7E7").getInt16(0u, LITTLE_ENDIAN))
+        assertEquals((-1).toShort(), byteArrayOf("FFFF").getInt16(0u, LITTLE_ENDIAN))
     }
 
     @Test
     fun test_int16_be() {
-        assertEquals(1799, byteArrayOf("0707").getInt16(0u, BIG_ENDIAN))
-        assertEquals(2023, byteArrayOf("07E7").getInt16(0u, BIG_ENDIAN))
-        assertEquals(-6393, byteArrayOf("E707").getInt16(0u, BIG_ENDIAN))
-        assertEquals(-6169, byteArrayOf("E7E7").getInt16(0u, BIG_ENDIAN))
-        assertEquals(-1, byteArrayOf("FFFF").getInt16(0u, BIG_ENDIAN))
+        assertEquals(1799.toShort(), byteArrayOf("0707").getInt16(0u, BIG_ENDIAN))
+        assertEquals(2023.toShort(), byteArrayOf("07E7").getInt16(0u, BIG_ENDIAN))
+        assertEquals((-6393).toShort(), byteArrayOf("E707").getInt16(0u, BIG_ENDIAN))
+        assertEquals((-6169).toShort(), byteArrayOf("E7E7").getInt16(0u, BIG_ENDIAN))
+        assertEquals((-1).toShort(), byteArrayOf("FFFF").getInt16(0u, BIG_ENDIAN))
     }
 
     // 24-bit variants
@@ -296,26 +296,26 @@ class ByteArrayExtenstionsTest {
 
     @Test
     fun test_create_uint16_le() {
-        assertEquals(1799u, byteArrayOf(1799u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
-        assertEquals(59143u, byteArrayOf(59143u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
-        assertEquals(59367u, byteArrayOf(59367u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
-        assertEquals(65535u, byteArrayOf(65535u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
+        assertEquals(1799u.toUShort(), byteArrayOf(1799u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
+        assertEquals(59143u.toUShort(), byteArrayOf(59143u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
+        assertEquals(59367u.toUShort(), byteArrayOf(59367u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
+        assertEquals(65535u.toUShort(), byteArrayOf(65535u, 2u, LITTLE_ENDIAN).getUInt16(order = LITTLE_ENDIAN))
     }
 
     @Test
     fun test_create_uint16_be() {
-        assertEquals(1799u, byteArrayOf(1799u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
-        assertEquals(59143u, byteArrayOf(59143u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
-        assertEquals(59367u, byteArrayOf(59367u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
-        assertEquals(65535u, byteArrayOf(65535u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
+        assertEquals(1799u.toUShort(), byteArrayOf(1799u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
+        assertEquals(59143u.toUShort(), byteArrayOf(59143u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
+        assertEquals(59367u.toUShort(), byteArrayOf(59367u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
+        assertEquals(65535u.toUShort(), byteArrayOf(65535u, 2u, BIG_ENDIAN).getUInt16(order = BIG_ENDIAN))
     }
 
     @Test
     fun test_create_int16_le() {
-        assertEquals(1799, byteArrayOf(1799, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
-        assertEquals(-6393, byteArrayOf(-6393, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
-        assertEquals(-6169, byteArrayOf(-6169, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
-        assertEquals(-1, byteArrayOf(-1, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
+        assertEquals(1799.toShort(), byteArrayOf(1799, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
+        assertEquals((-6393).toShort(), byteArrayOf(-6393, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
+        assertEquals((-6169).toShort(), byteArrayOf(-6169, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
+        assertEquals((-1).toShort(), byteArrayOf(-1, 2u, LITTLE_ENDIAN).getInt16(order = LITTLE_ENDIAN))
     }
 
     @Test
@@ -334,10 +334,10 @@ class ByteArrayExtenstionsTest {
 
     @Test
     fun test_create_int16_be() {
-        assertEquals(1799, byteArrayOf(1799, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
-        assertEquals(-6393, byteArrayOf(-6393, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
-        assertEquals(-6169, byteArrayOf(-6169, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
-        assertEquals(-1, byteArrayOf(-1, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
+        assertEquals(1799.toShort(), byteArrayOf(1799, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
+        assertEquals((-6393).toShort(), byteArrayOf(-6393, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
+        assertEquals((-6169).toShort(), byteArrayOf(-6169, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
+        assertEquals((-1).toShort(), byteArrayOf(-1, 2u, BIG_ENDIAN).getInt16(order = BIG_ENDIAN))
     }
 
     // Create 24 bit

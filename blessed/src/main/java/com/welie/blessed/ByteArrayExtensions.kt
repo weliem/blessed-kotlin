@@ -126,12 +126,12 @@ fun ByteArray.getInt8(offset: UInt = 0u): Int {
     return this[offset.toInt()].toInt()
 }
 
-fun ByteArray.getUInt16(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): UInt {
-    return getULong(offset = offset, length = 2u, order = order).toUInt()
+fun ByteArray.getUInt16(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): UShort {
+    return getULong(offset = offset, length = 2u, order = order).toUShort()
 }
 
-fun ByteArray.getInt16(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Int {
-    return unsignedToSigned(getULong(offset = offset, length = 2u, order = order).toUInt(), 16u)
+fun ByteArray.getInt16(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Short {
+    return getUInt16(offset = offset, order = order).toShort()
 }
 
 fun ByteArray.getUInt24(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): UInt {
@@ -147,7 +147,7 @@ fun ByteArray.getUInt32(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): UI
 }
 
 fun ByteArray.getInt32(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Int {
-    return getULong(offset = offset, length = 4u, order = order).toInt()
+    return getUInt32(offset = offset, order = order).toInt()
 }
 
 fun ByteArray.getUInt48(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): ULong {
@@ -167,7 +167,7 @@ fun ByteArray.getInt64(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Lon
 }
 
 fun ByteArray.getSFloat(offset: UInt = 0u, order: ByteOrder = LITTLE_ENDIAN): Double {
-    val uint16 = getUInt16(offset = offset, order = order)
+    val uint16 = getUInt16(offset = offset, order = order).toUInt()
     val mantissa = unsignedToSigned(uint16 and 0x0FFFu, 12u)
     val exponent = unsignedToSigned(uint16 shr 12, 4u)
 
@@ -214,6 +214,14 @@ fun byteArrayOf(value: ULong, length: UInt, order: ByteOrder = LITTLE_ENDIAN): B
         }
     }
     return result
+}
+
+fun UShort.asUInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toUInt(), 2u, order)
+}
+
+fun Short.asInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
+    return byteArrayOf(this.toInt(), 2u, order)
 }
 
 fun UInt.asUInt16(order: ByteOrder = LITTLE_ENDIAN): ByteArray {
