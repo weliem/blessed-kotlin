@@ -223,7 +223,7 @@ class BuetoothBytesBuilderTests {
         val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
             .addFloat(36.8, 1)
             .addUInt8(253)
-            .addUInt16(66666)
+            .addUInt16(6666)
             .addSFloat(-6.66, 2)
             .addInt64(-1799215504984381689)
             .build()

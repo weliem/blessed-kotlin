@@ -15,6 +15,8 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
     }
 
     fun addUInt8(value: Int): BluetoothBytesBuilder {
+        require(value >= 0) { "unsigned values cannot be negative" }
+
         return append(byteArrayOf((value.toUInt() and 255u).toByte()))
     }
 
@@ -22,9 +24,13 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
         return append(byteArrayOf((value and 255u).toByte()))
     }
 
+    fun addUInt8(value: Byte): BluetoothBytesBuilder {
+        return append(byteArrayOf(value))
+    }
+
     fun addUInt16(value: Int): BluetoothBytesBuilder {
-        if (value > Short.MAX_VALUE)
-            throw IllegalArgumentException("value is larger than ${Short.MAX_VALUE}")
+        require(value >= 0) { "unsigned values cannot be negative" }
+        require(value <= Short.MAX_VALUE ) { "value is larger than ${Short.MAX_VALUE}" }
 
         return addUInt16(value.toUInt())
     }
@@ -38,6 +44,9 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
     }
 
     fun addUInt24(value: Int): BluetoothBytesBuilder {
+        require(value >= 0) { "unsigned values cannot be negative" }
+        require(value <= UINT24_MAX_VALUE ) { "value is larger than $UINT24_MAX_VALUE" }
+
         return append(value.toUInt().asUInt24(byteOrder))
     }
     fun addUInt24(value: UInt): BluetoothBytesBuilder {
@@ -49,6 +58,9 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
     }
 
     fun addUInt32(value: Int): BluetoothBytesBuilder {
+        require(value >= 0) { "unsigned values cannot be negative" }
+        require(value <= UInt.MAX_VALUE.toInt() ) { "value is larger than ${UInt.MAX_VALUE}" }
+
         return addUInt32(value.toUInt())
     }
 
@@ -61,6 +73,9 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
     }
 
     fun addUInt48(value: Long): BluetoothBytesBuilder {
+        require(value >= 0) { "unsigned values cannot be negative" }
+        require(value <= UINT48_MAX_VALUE ) { "value is larger than $UINT48_MAX_VALUE" }
+
         return addUInt48(value.toULong())
     }
 
@@ -106,5 +121,10 @@ class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = 
             System.arraycopy(bytes, 0, largerByteArray, 0, bytes.size)
             bytes = largerByteArray
         }
+    }
+
+    companion object {
+        private const val UINT24_MAX_VALUE: Int = 16777215
+        private const val UINT48_MAX_VALUE: Long = 281474976710655
     }
 }
