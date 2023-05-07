@@ -3,14 +3,18 @@ package com.welie.blessed
 import org.junit.Test
 import org.junit.Assert.*
 import java.nio.ByteOrder.LITTLE_ENDIAN
+import java.util.Calendar
 
 class BuetoothBytesBuilderParserTests {
 
     @Test
     fun `Adding two int8 values`() {
+        val number1 : Byte = 120
+        val number2 : Byte = -120
+
         val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
-            .addInt8(120)
-            .addInt8(-120)
+            .addInt8(number1)
+            .addInt8(number2)
             .build()
 
         assertTrue(value.size == 2)
@@ -37,6 +41,105 @@ class BuetoothBytesBuilderParserTests {
     }
 
     @Test
+    fun `Adding to uint8 values by providing Int`() {
+        val number1 : Int = 120
+        val number2 : Int = 253
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt8(number1)
+            .addUInt8(number2)
+            .build()
+
+        assertTrue(value.size == 2)
+        assertEquals("78FD", value.asHexString())
+    }
+
+    @Test (expected = IllegalArgumentException::class)
+    fun `When adding uint8 values by providing too large Int, then an exception is thrown`() {
+        val number1 : Int = 256
+
+        BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt8(number1)
+            .build()
+    }
+
+    @Test (expected = IllegalArgumentException::class)
+    fun `When adding uint8 values by providing a neg Int, then an exception is thrown`() {
+        val number1 : Int = -1
+
+        BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt8(number1)
+            .build()
+    }
+
+    @Test (expected = IllegalArgumentException::class)
+    fun `When adding uint8 values by providing too large UInt, then an exception is thrown`() {
+        val number1 : UInt = 256u
+
+        BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt8(number1)
+            .build()
+    }
+
+    @Test (expected = IllegalArgumentException::class)
+    fun `When adding int8 values by providing too large Int, then an exception is thrown`() {
+        val number1 : Int = Byte.MAX_VALUE + 1
+
+        BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addInt8(number1)
+            .build()
+    }
+
+    @Test (expected = IllegalArgumentException::class)
+    fun `When adding int8 values by providing too small Int, then an exception is thrown`() {
+        val number1 : Int = Byte.MIN_VALUE - 1
+
+        BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addInt8(number1)
+            .build()
+    }
+
+    @Test
+    fun `Adding to int8 values by providing Int`() {
+        val number1 : Int = 120
+        val number2 : Int = -3
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addInt8(number1)
+            .addInt8(number2)
+            .build()
+
+        assertTrue(value.size == 2)
+        assertEquals("78FD", value.asHexString())
+    }
+
+    @Test
+    fun `Adding to uint8 values by providing Byte an UByte`() {
+        val number1 : UByte = 120u
+        val number2 : Byte = -3
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt8(number1)
+            .addUInt8(number2)
+            .build()
+
+        assertTrue(value.size == 2)
+        assertEquals("78FD", value.asHexString())
+    }
+
+    @Test
+    fun `Adding to int8 values by providing a UByte`() {
+        val number1 : UByte = 120u
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addInt8(number1)
+            .build()
+
+        assertTrue(value.size == 1)
+        assertEquals("78", value.asHexString())
+    }
+
+    @Test
     fun `Adding two int16 values`() {
         val number1: Short = 13769
         val number2: Short = -13769
@@ -55,6 +158,42 @@ class BuetoothBytesBuilderParserTests {
     }
 
     @Test
+    fun `Adding two int16 values using Int values`() {
+        val number1: Int = 13769
+        val number2: Int = -13769
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addInt16(number1)
+            .addInt16(number2)
+            .build()
+
+        assertTrue(value.size == 4)
+        assertEquals("C93537CA", value.asHexString())
+
+        val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
+        assertTrue(parser.getInt16().toInt() == number1)
+        assertTrue(parser.getInt16().toInt() == number2)
+    }
+
+    @Test (expected = IllegalArgumentException::class)
+    fun `When adding int16 values by providing too small Int, then an exception is thrown`() {
+        val number1 : Int = Short.MIN_VALUE - 1
+
+        BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addInt16(number1)
+            .build()
+    }
+
+    @Test (expected = IllegalArgumentException::class)
+    fun `When adding int16 values by providing too large Int, then an exception is thrown`() {
+        val number1 : Int = Short.MAX_VALUE + 1
+
+        BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addInt16(number1)
+            .build()
+    }
+
+    @Test
     fun `Adding two uint16 values`() {
         val number1: UShort = 13769u
         val number2: UShort = 25312u
@@ -70,6 +209,24 @@ class BuetoothBytesBuilderParserTests {
         val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
         assertTrue(parser.getUInt16() == number1)
         assertTrue(parser.getUInt16() == number2)
+    }
+
+    @Test
+    fun `Adding two uint16 values using UInt values`() {
+        val number1: UInt = 13769u
+        val number2: UInt = UShort.MAX_VALUE.toUInt()
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt16(number1)
+            .addUInt16(number2)
+            .build()
+
+        assertTrue(value.size == 4)
+        assertEquals("C935FFFF", value.asHexString())
+
+        val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
+        assertEquals(number1, parser.getUInt16().toUInt())
+        assertEquals(number2, parser.getUInt16().toUInt())
     }
 
     @Test
@@ -109,6 +266,20 @@ class BuetoothBytesBuilderParserTests {
     }
 
     @Test
+    fun `Adding two uint24 values, by suppling Int value`() {
+        val number1: Int = 518119
+        val number2: Int = 460551
+
+        val value = BluetoothBytesBuilder(6u, LITTLE_ENDIAN)
+            .addUInt24(number1)
+            .addUInt24(number2)
+            .build()
+
+        assertTrue(value.size == 6)
+        assertEquals("E7E707070707", value.asHexString())
+    }
+
+    @Test
     fun `Adding two int32 values`() {
         val number1: Int = 4444
         val number2: Int = -99999
@@ -142,6 +313,20 @@ class BuetoothBytesBuilderParserTests {
         val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
         assertTrue(parser.getUInt32() == number1)
         assertTrue(parser.getUInt32() == number2)
+    }
+
+    @Test
+    fun `Adding two uint32 values, by supplying Int values`() {
+        val number1: Int = 4444
+        val number2: Int = 99999
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt32(number1)
+            .addUInt32(number2)
+            .build()
+
+        assertTrue(value.size == 8)
+        assertEquals("5C1100009F860100", value.asHexString())
     }
 
     @Test
@@ -181,6 +366,19 @@ class BuetoothBytesBuilderParserTests {
     }
 
     @Test
+    fun `Adding two uint48 values, by supplying Long values`() {
+        val number1: Long = 254983214196711
+        val number2: Long = 7726764066567
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt48(number1)
+            .addUInt48(number2)
+            .build()
+
+        assertTrue(value.size == 12)
+        assertEquals("E7E7E7E7E7E7070707070707", value.asHexString())
+    }
+    @Test
     fun `Adding two int64 values`() {
         val number1: Long = 506381209866536711
         val number2: Long = -1799215504984381689
@@ -214,6 +412,18 @@ class BuetoothBytesBuilderParserTests {
         val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
         assertEquals(number1, parser.getUInt64())
         assertEquals(number2, parser.getUInt64())
+    }
+
+    @Test
+    fun `Adding two uint64 values, by supplying Long values`() {
+        val number1: Long = 506381209866536711
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .addUInt64(number1)
+            .build()
+
+        assertTrue(value.size == 8)
+        assertEquals("0707070707070707", value.asHexString())
     }
 
     @Test
@@ -271,5 +481,19 @@ class BuetoothBytesBuilderParserTests {
         assertEquals(6666u.toUShort(), parser.getUInt16())
         assertEquals(-6.66, parser.getSFloat(), 0.01)
         assertEquals(-1799215504984381689, parser.getInt64())
+    }
+
+    @Test
+    fun `Adding date time`() {
+        val calendar = Calendar.getInstance()
+        val date = calendar.time.time
+
+        val value = BluetoothBytesBuilder(byteOrder = LITTLE_ENDIAN)
+            .add(dateTimeByteArrayOf(calendar))
+            .build()
+
+        val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
+        val date2 = parser.getDateTime().time
+        assertTrue(date2 - date <= 1000)
     }
 }
