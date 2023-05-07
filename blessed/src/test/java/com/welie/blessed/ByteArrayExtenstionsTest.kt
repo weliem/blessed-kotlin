@@ -24,7 +24,7 @@ class ByteArrayExtenstionsTest {
 
     @Test
     fun test_formattedHexString() {
-        assertEquals("61:62:63:00", byteArrayOf("61626300").formatHexBytes(":"))
+        assertEquals("61:62:63:00", byteArrayOf("61626300").asFormattedHexString(":"))
     }
 
     @Test
