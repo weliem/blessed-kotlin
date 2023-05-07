@@ -28,10 +28,10 @@ import java.nio.charset.StandardCharsets
 import java.util.*
 import kotlin.math.pow
 
-class BluetoothBytesParser (
-    var value: ByteArray,
+open class BluetoothBytesParser (
+    private val value: ByteArray,
     var offset: Int = 0,
-    var byteOrder: ByteOrder = LITTLE_ENDIAN
+    private val byteOrder: ByteOrder = LITTLE_ENDIAN
 ) {
     fun getUInt8() : UInt {
         val result = value.getUInt8(offset.toUInt())

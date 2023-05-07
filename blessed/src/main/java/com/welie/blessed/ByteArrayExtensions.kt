@@ -13,7 +13,7 @@ fun Byte.asHexString(): String {
     return hexString
 }
 
-fun ByteArray.formatHexBytes(separator: String?): String {
+fun ByteArray.asFormattedHexString(separator: String?): String {
     var resultString = ""
     for ((index, value) in this.iterator().withIndex()) {
         resultString += value.asHexString()
@@ -23,7 +23,7 @@ fun ByteArray.formatHexBytes(separator: String?): String {
 }
 
 fun ByteArray.asHexString(): String {
-    return this.formatHexBytes(null)
+    return this.asFormattedHexString(null)
 }
 
 /**

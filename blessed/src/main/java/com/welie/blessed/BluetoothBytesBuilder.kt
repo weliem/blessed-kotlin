@@ -2,7 +2,7 @@ package com.welie.blessed
 
 import java.nio.ByteOrder
 
-class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN) {
+open class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN) {
     private var bytes = ByteArray(size.toInt())
     private var offset: Int = 0
 
