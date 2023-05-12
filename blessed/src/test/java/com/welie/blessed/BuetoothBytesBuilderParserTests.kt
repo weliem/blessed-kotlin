@@ -496,4 +496,19 @@ class BuetoothBytesBuilderParserTests {
         val date2 = parser.getDateTime().time
         assertTrue(date2 - date <= 1000)
     }
+
+    @Test
+    fun `Getting string of a certain length`() {
+        val value = "This is a test".toByteArray()
+        val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
+        assertEquals("This is", parser.getString(7) )
+    }
+
+    @Test
+    fun `Getting string`() {
+        val value = "This is a test".toByteArray()
+        val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
+        assertEquals("This is a test", parser.getString() )
+    }
+
 }

@@ -121,9 +121,9 @@ open class BluetoothBytesParser (
         val length = value.size - offset
         return getString(length)
     }
-    
+
     fun getString(length: Int): String {
-        val slicedArray = value.sliceArray(IntRange(offset, offset + length))
+        val slicedArray = value.sliceArray(IntRange(offset, offset + length - 1))
         offset += length
         return slicedArray.getString()
     }
