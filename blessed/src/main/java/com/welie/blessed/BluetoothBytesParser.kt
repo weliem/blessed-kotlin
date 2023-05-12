@@ -117,6 +117,17 @@ open class BluetoothBytesParser (
         return result
     }
 
+    fun getString(): String {
+        val length = value.size - offset
+        return getString(length)
+    }
+    
+    fun getString(length: Int): String {
+        val slicedArray = value.sliceArray(IntRange(offset, offset + length))
+        offset += length
+        return slicedArray.getString()
+    }
+
     fun getDateTime() : Date {
         val result = value.getDateTime(offset.toUInt())
         offset += 7
