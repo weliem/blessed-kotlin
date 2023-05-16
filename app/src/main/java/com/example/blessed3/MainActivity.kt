@@ -14,11 +14,11 @@ import com.example.blessed3.ui.theme.Blessed3Theme
 import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             Blessed3Theme {
-                // A surface container using the 'background' color from the theme
                 Column(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -39,15 +39,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun restartScanning() {
-        if (permissionsGranted()) {
+        if (BluetoothHandler.centralManager.permissionsGranted()) {
             BluetoothHandler.startScanning()
         } else {
             requestPermissions()
         }
     }
 
-    private var permissionRequestInProgress = false
-    private fun requestPermissions()  {
+    private fun requestPermissions() {
         val missingPermissions = BluetoothHandler.centralManager.getMissingPermissions()
         if (missingPermissions.isNotEmpty() && !permissionRequestInProgress) {
             permissionRequestInProgress = true
@@ -55,10 +54,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun permissionsGranted() : Boolean {
-        return BluetoothHandler.centralManager.getMissingPermissions().isEmpty()
-    }
-
+    private var permissionRequestInProgress = false
     private val blePermissionRequest =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             permissionRequestInProgress = false

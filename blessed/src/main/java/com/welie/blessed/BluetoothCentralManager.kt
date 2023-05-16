@@ -724,23 +724,8 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
         return missingPermissions.toTypedArray()
     }
 
-    private fun permissionsGranted(): Boolean {
-        val targetSdkVersion = context.applicationInfo.targetSdkVersion
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && targetSdkVersion >= Build.VERSION_CODES.S) {
-            if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                throw SecurityException("app does not have BLUETOOTH_SCAN permission, cannot start scan")
-            }
-            if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                throw SecurityException("app does not have BLUETOOTH_CONNECT permission, cannot connect")
-            } else true
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && targetSdkVersion >= Build.VERSION_CODES.Q) {
-            if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                throw SecurityException("app does not have ACCESS_FINE_LOCATION permission, cannot start scan")
-            } else true
-        } else
-            if (context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                throw SecurityException("app does not have ACCESS_COARSE_LOCATION permission, cannot start scan")
-            } else true
+    fun permissionsGranted(): Boolean {
+        return getMissingPermissions().isEmpty()
     }
 
     /**
