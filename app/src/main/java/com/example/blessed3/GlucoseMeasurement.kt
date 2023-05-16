@@ -20,7 +20,7 @@ data class GlucoseMeasurement(
 ) {
     override fun toString(): String {
         val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
-        return "${"%.0f".format(value)} $unit \n at ${dateFormat.format(timestamp ?: createdAt)} "
+        return "${"%.0f".format(value)} ${unit.notation} \nat ${dateFormat.format(timestamp ?: createdAt)} "
     }
 
     companion object {

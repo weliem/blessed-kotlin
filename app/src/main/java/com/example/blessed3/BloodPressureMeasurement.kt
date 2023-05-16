@@ -23,7 +23,7 @@ data class BloodPressureMeasurement(
 
     override fun toString(): String {
         val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
-        return "${"%.0f".format(systolic)}/${"%.0f".format(diastolic)} $unit \n at ${dateFormat.format(timestamp ?: createdAt)} "
+        return "${"%.0f".format(systolic)}/${"%.0f".format(diastolic)} ${unit.notation} \n at ${dateFormat.format(timestamp ?: createdAt)} "
     }
 
     companion object {

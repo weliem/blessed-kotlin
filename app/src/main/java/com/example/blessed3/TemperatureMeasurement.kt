@@ -17,7 +17,7 @@ data class TemperatureMeasurement(
 ) {
     override fun toString(): String {
         val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
-        return "${"%.1f".format(temperatureValue)} $unit \n at ${dateFormat.format(timestamp ?: createdAt)} "
+        return "${"%.1f".format(temperatureValue)} ${unit.notation} \nat ${dateFormat.format(timestamp ?: createdAt)} "
     }
 
     companion object {

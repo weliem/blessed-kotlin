@@ -231,7 +231,7 @@ object BluetoothHandler {
 
         override fun onDisconnected(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.i("disconnected '${peripheral.name}'")
-            Toast.makeText(context, "Disonnected ${peripheral.name}", LENGTH_SHORT).show()
+            Toast.makeText(context, "Disconnected ${peripheral.name}", LENGTH_SHORT).show()
             handler.postDelayed(
                 { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
                 15000
@@ -270,7 +270,7 @@ object BluetoothHandler {
 
     fun initialize(context: Context) {
         Timber.plant(Timber.DebugTree())
-        Timber.i("intializing BluetoothHandler")
+        Timber.i("initializing BluetoothHandler")
         this.context = context.applicationContext
         this.centralManager = BluetoothCentralManager(this.context, bluetoothCentralManagerCallback, handler)
     }

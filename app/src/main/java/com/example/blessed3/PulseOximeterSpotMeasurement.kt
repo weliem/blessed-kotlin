@@ -20,7 +20,7 @@ data class PulseOximeterSpotMeasurement(
 ) {
     override fun toString(): String {
         val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
-        return "${"%.0f".format(spO2)} %, ${"%.0f".format(pulseRate)} bpm\n at ${dateFormat.format(timestamp ?: createdAt)} "
+        return "${"%.0f".format(spO2)} %, ${"%.0f".format(pulseRate)} bpm\nat ${dateFormat.format(timestamp ?: createdAt)} "
     }
 
     companion object {
