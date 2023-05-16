@@ -375,7 +375,9 @@ enum class HciStatus(val value: Int) {
     /**
      * An attempt was made to send or receive a packet that exceeds the maximum allowed packet length.
      */
-    PACKET_TOO_LONG(0x45),  // Additional Android specific errors
+    PACKET_TOO_LONG(0x45),
+
+    // Additional Android specific errors
     ERROR(0x85),
 
     /**
