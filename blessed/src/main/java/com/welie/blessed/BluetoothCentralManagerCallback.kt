@@ -29,18 +29,18 @@ import android.bluetooth.le.ScanResult
  */
 abstract class BluetoothCentralManagerCallback {
     /**
-     * Trying to connected with a peripheral.
+     * The peripheral is connecting
      *
      * @param peripheral the peripheral that is connecting
      */
-    open fun onConnectingPeripheral(peripheral: BluetoothPeripheral) {}
+    open fun onConnecting(peripheral: BluetoothPeripheral) {}
 
     /**
      * Successfully connected with a peripheral.
      *
      * @param peripheral the peripheral that was connected.
      */
-    open fun onConnectedPeripheral(peripheral: BluetoothPeripheral) {}
+    open fun onConnected(peripheral: BluetoothPeripheral) {}
 
     /**
      * Connecting with the peripheral has failed.
@@ -51,11 +51,11 @@ abstract class BluetoothCentralManagerCallback {
     open fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {}
 
     /**
-     * Trying to disconnect peripheral
+     * Peripheral is disconnecting
      *
      * @param peripheral the peripheral we are trying to disconnect
      */
-    open fun onDisconnectingPeripheral(peripheral: BluetoothPeripheral) {}
+    open fun onDisconnecting(peripheral: BluetoothPeripheral) {}
 
     /**
      * Peripheral disconnected
@@ -63,7 +63,7 @@ abstract class BluetoothCentralManagerCallback {
      * @param peripheral the peripheral that disconnected.
      * @param status the status code for the disconnection
      */
-    open fun onDisconnectedPeripheral(peripheral: BluetoothPeripheral, status: HciStatus) {}
+    open fun onDisconnected(peripheral: BluetoothPeripheral, status: HciStatus) {}
 
     /**
      * Discovered a peripheral
@@ -71,7 +71,7 @@ abstract class BluetoothCentralManagerCallback {
      * @param peripheral the peripheral that was found
      * @param scanResult the scanResult describing the peripheral
      */
-    open fun onDiscoveredPeripheral(peripheral: BluetoothPeripheral, scanResult: ScanResult) {}
+    open fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {}
 
     /**
      * Scanning failed

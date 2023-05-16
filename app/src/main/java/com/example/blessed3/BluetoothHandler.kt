@@ -212,7 +212,7 @@ object BluetoothHandler {
     }
 
     private val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
-        override fun onDiscoveredPeripheral(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
+        override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
             Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
             centralManager.stopScan()
 
@@ -220,20 +220,20 @@ object BluetoothHandler {
                 // Create a bond immediately to avoid double pairing popups
                 centralManager.createBond(peripheral, bluetoothPeripheralCallback)
             } else {
-                centralManager.connectPeripheral(peripheral, bluetoothPeripheralCallback)
+                centralManager.connect(peripheral, bluetoothPeripheralCallback)
             }
         }
 
-        override fun onConnectedPeripheral(peripheral: BluetoothPeripheral) {
+        override fun onConnected(peripheral: BluetoothPeripheral) {
             Timber.i("connected to '${peripheral.name}'")
             Toast.makeText(context, "Connected to ${peripheral.name}", LENGTH_SHORT).show()
         }
 
-        override fun onDisconnectedPeripheral(peripheral: BluetoothPeripheral, status: HciStatus) {
+        override fun onDisconnected(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.i("disconnected '${peripheral.name}'")
             Toast.makeText(context, "Disonnected ${peripheral.name}", LENGTH_SHORT).show()
             handler.postDelayed(
-                { centralManager.autoConnectPeripheral(peripheral, bluetoothPeripheralCallback) },
+                { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
                 15000
             )
         }

@@ -117,7 +117,7 @@ class BluetoothCentralManagerTests {
         // Then
         val peripheral = slot<BluetoothPeripheral>()
         val receivedScanResult = slot<ScanResult>()
-        verify { callback.onDiscoveredPeripheral(capture(peripheral), capture(receivedScanResult)) }
+        verify { callback.onDiscovered(capture(peripheral), capture(receivedScanResult)) }
         assertEquals(scanResult, receivedScanResult.captured)
         assertEquals(device.address, peripheral.captured.address)
         assertEquals(device.name, peripheral.captured.name)
@@ -204,7 +204,7 @@ class BluetoothCentralManagerTests {
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
-        verify(exactly = 0) { callback.onDiscoveredPeripheral(any(), any()) }
+        verify(exactly = 0) { callback.onDiscovered(any(), any()) }
     }
 
     @Test
@@ -253,7 +253,7 @@ class BluetoothCentralManagerTests {
         // Then
         val peripheral = slot<BluetoothPeripheral>()
         val receivedScanResult = slot<ScanResult>()
-        verify { callback.onDiscoveredPeripheral(capture(peripheral), capture(receivedScanResult)) }
+        verify { callback.onDiscovered(capture(peripheral), capture(receivedScanResult)) }
         assertEquals(scanResult, receivedScanResult.captured)
         assertEquals(device.address, peripheral.captured.address)
         assertEquals(device.name, peripheral.captured.name)
@@ -311,7 +311,7 @@ class BluetoothCentralManagerTests {
         every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS) } returns device
 
         // When
-        central.autoConnectPeripheral(peripheral, peripheralCallback)
+        central.autoConnect(peripheral, peripheralCallback)
 
         verify { scanner.startScan(any(), any(), capture(scanCallback)) }
         scanCallback.captured.onScanFailed(ScanFailure.OUT_OF_HARDWARE_RESOURCES.value)
@@ -363,7 +363,7 @@ class BluetoothCentralManagerTests {
         every { peripheral.connect() } returns Unit
 
         // When
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
 
         // Then
         verify { peripheral.connect() }
@@ -382,12 +382,12 @@ class BluetoothCentralManagerTests {
         every { peripheral.connect() } returns Unit
 
         // When
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
         central.internalCallback.connecting(peripheral)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
-        verify { callback.onConnectingPeripheral(peripheral) }
+        verify { callback.onConnecting(peripheral) }
         assertTrue(central.getConnectedPeripherals().isEmpty())
 
         // When
@@ -395,7 +395,7 @@ class BluetoothCentralManagerTests {
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
-        verify { callback.onConnectedPeripheral(peripheral) }
+        verify { callback.onConnected(peripheral) }
         assertTrue(central.getConnectedPeripherals().size == 1)
     }
 
@@ -409,12 +409,12 @@ class BluetoothCentralManagerTests {
         every { peripheral.type } returns PeripheralType.LE
         every { peripheral.peripheralCallback = any() } returns Unit
         every { peripheral.connect() } returns Unit
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
         central.internalCallback.connected(peripheral)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // When
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
 
         // Then
         verify(exactly = 1) { peripheral.connect() }
@@ -430,10 +430,10 @@ class BluetoothCentralManagerTests {
         every { peripheral.type } returns PeripheralType.LE
         every { peripheral.peripheralCallback = any() } returns Unit
         every { peripheral.connect() } returns Unit
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
 
         // When
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
 
         // Then
         verify(exactly = 1) { peripheral.connect() }
@@ -450,7 +450,7 @@ class BluetoothCentralManagerTests {
         every { peripheral.peripheralCallback = any() } returns Unit
         every { peripheral.connect() } returns Unit
         every { peripheral.name } returns DEVICE_NAME
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
 
         // When
         central.internalCallback.connectFailed(peripheral, HciStatus.ERROR)
@@ -471,7 +471,7 @@ class BluetoothCentralManagerTests {
         every { peripheral.peripheralCallback = any() } returns Unit
         every { peripheral.connect() } returns Unit
         every { peripheral.name } returns DEVICE_NAME
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
 
         // When
         central.internalCallback.connectFailed(peripheral, HciStatus.ERROR)
@@ -493,7 +493,7 @@ class BluetoothCentralManagerTests {
         every { peripheral.peripheralCallback = any() } returns Unit
         every { peripheral.connect() } returns Unit
         every { peripheral.cancelConnection() } returns Unit
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
         central.internalCallback.connected(peripheral)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
@@ -525,12 +525,12 @@ class BluetoothCentralManagerTests {
         every { peripheral.connect() } returns Unit
 
         // When
-        central.connectPeripheral(peripheral, peripheralCallback)
+        central.connect(peripheral, peripheralCallback)
         central.internalCallback.connecting(peripheral)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
-        verify { callback.onConnectingPeripheral(peripheral) }
+        verify { callback.onConnecting(peripheral) }
         assertTrue(central.getConnectedPeripherals().isEmpty())
 
         // When
@@ -538,7 +538,7 @@ class BluetoothCentralManagerTests {
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
-        verify { callback.onConnectedPeripheral(peripheral) }
+        verify { callback.onConnected(peripheral) }
         assertTrue(central.getConnectedPeripherals().size == 1)
 
         // When
@@ -546,7 +546,7 @@ class BluetoothCentralManagerTests {
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
         // Then
-        verify { callback.onDisconnectedPeripheral(peripheral, HciStatus.OPERATION_CANCELLED_BY_HOST) }
+        verify { callback.onDisconnected(peripheral, HciStatus.OPERATION_CANCELLED_BY_HOST) }
         assertTrue(central.getConnectedPeripherals().isEmpty())
     }
 
@@ -562,7 +562,7 @@ class BluetoothCentralManagerTests {
         every { peripheral.autoConnect() } returns Unit
 
         // When
-        central.autoConnectPeripheral(peripheral, peripheralCallback)
+        central.autoConnect(peripheral, peripheralCallback)
 
         // Then
         verify { peripheral.autoConnect() }
@@ -581,7 +581,7 @@ class BluetoothCentralManagerTests {
         every { peripheral.autoConnect() } returns Unit
 
         // When
-        central.autoConnectPeripheral(peripheral, peripheralCallback)
+        central.autoConnect(peripheral, peripheralCallback)
 
         // Then
         val filters = slot<List<ScanFilter>>()
@@ -606,7 +606,7 @@ class BluetoothCentralManagerTests {
         every { peripheral.connect() } returns Unit
 
         // When
-        central.autoConnectPeripheral(peripheral, peripheralCallback)
+        central.autoConnect(peripheral, peripheralCallback)
 
         // Then
         val callbackSlot = slot<ScanCallback>()

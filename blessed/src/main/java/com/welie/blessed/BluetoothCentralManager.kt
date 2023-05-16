@@ -113,7 +113,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             if (isScanning) {
                 val peripheral = getPeripheral(result.device.address)
                 peripheral.setDevice(result.device)
-                bluetoothCentralManagerCallback.onDiscoveredPeripheral(peripheral, result)
+                bluetoothCentralManagerCallback.onDiscovered(peripheral, result)
             }
         }
     }
@@ -142,7 +142,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
                 removePeripheralFromCaches(deviceAddress)
 
                 if (peripheral != null && callback != null) {
-                    connectPeripheral(peripheral, callback)
+                    connect(peripheral, callback)
                 }
                 if (reconnectPeripheralAddresses.size > 0) {
                     scanForAutoConnectPeripherals()
@@ -160,14 +160,14 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
 
     internal val internalCallback: InternalCallback = object : InternalCallback {
         override fun connecting(peripheral: BluetoothPeripheral) {
-            callBackHandler.post { bluetoothCentralManagerCallback.onConnectingPeripheral(peripheral) }
+            callBackHandler.post { bluetoothCentralManagerCallback.onConnecting(peripheral) }
         }
 
         override fun connected(peripheral: BluetoothPeripheral) {
             val peripheralAddress = peripheral.address
             removePeripheralFromCaches(peripheralAddress)
             connectedPeripherals[peripheralAddress] = peripheral
-            callBackHandler.post { bluetoothCentralManagerCallback.onConnectedPeripheral(peripheral) }
+            callBackHandler.post { bluetoothCentralManagerCallback.onConnected(peripheral) }
         }
 
         override fun connectFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
@@ -193,12 +193,12 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
         }
 
         override fun disconnecting(peripheral: BluetoothPeripheral) {
-            callBackHandler.post { bluetoothCentralManagerCallback.onDisconnectingPeripheral(peripheral) }
+            callBackHandler.post { bluetoothCentralManagerCallback.onDisconnecting(peripheral) }
         }
 
         override fun disconnected(peripheral: BluetoothPeripheral, status: HciStatus) {
             removePeripheralFromCaches(peripheral.address)
-            callBackHandler.post { bluetoothCentralManagerCallback.onDisconnectedPeripheral(peripheral, status) }
+            callBackHandler.post { bluetoothCentralManagerCallback.onDisconnected(peripheral, status) }
         }
 
         override fun getPincode(peripheral: BluetoothPeripheral): String? {
@@ -461,7 +461,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      *
      * @param peripheral BLE peripheral to connect with
      */
-    fun connectPeripheral(peripheral: BluetoothPeripheral, peripheralCallback: BluetoothPeripheralCallback) {
+    fun connect(peripheral: BluetoothPeripheral, peripheralCallback: BluetoothPeripheralCallback) {
         synchronized(connectLock) {
             if (connectedPeripherals.containsKey(peripheral.address)) {
                 Logger.w(TAG, "already connected to %s'", peripheral.address)
@@ -527,7 +527,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      *
      * @param peripheral the peripheral
      */
-    fun autoConnectPeripheral(peripheral: BluetoothPeripheral, peripheralCallback: BluetoothPeripheralCallback) {
+    fun autoConnect(peripheral: BluetoothPeripheral, peripheralCallback: BluetoothPeripheralCallback) {
         synchronized(connectLock) {
             if (connectedPeripherals.containsKey(peripheral.address)) {
                 Logger.w(TAG, "already connected to %s'", peripheral.address)
@@ -585,7 +585,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             unconnectedPeripherals.remove(peripheralAddress)
             stopAutoconnectScan()
             Logger.d(TAG, "cancelling autoconnect for %s", peripheralAddress)
-            callBackHandler.post { bluetoothCentralManagerCallback.onDisconnectedPeripheral(peripheral, HciStatus.SUCCESS) }
+            callBackHandler.post { bluetoothCentralManagerCallback.onDisconnected(peripheral, HciStatus.SUCCESS) }
 
             // If there are any devices left, restart the reconnection scan
             if (reconnectPeripheralAddresses.size > 0) {
@@ -623,7 +623,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             if (peripheral.isUncached) {
                 uncachedPeripherals[peripheral] = batch[peripheral]
             } else {
-                autoConnectPeripheral(peripheral, batch[peripheral]!!)
+                autoConnect(peripheral, batch[peripheral]!!)
             }
         }
 

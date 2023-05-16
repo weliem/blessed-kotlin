@@ -647,7 +647,7 @@ class BluetoothPeripheral internal constructor(
      * Disconnect the bluetooth peripheral.
      *
      *
-     * When the disconnection has been completed [BluetoothCentralManagerCallback.onDisconnectedPeripheral] will be called.
+     * When the disconnection has been completed [BluetoothCentralManagerCallback.onDisconnected] will be called.
      */
     private fun disconnect() {
         if (state == BluetoothProfile.STATE_CONNECTED || state == BluetoothProfile.STATE_CONNECTING) {
