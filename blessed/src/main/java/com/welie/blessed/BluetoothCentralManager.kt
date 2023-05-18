@@ -75,7 +75,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     private var scanSettings: ScanSettings
     private val autoConnectScanSettings: ScanSettings
     private val connectionRetries: MutableMap<String, Int> = ConcurrentHashMap()
-    private val pinCodes: MutableMap<String, String> = ConcurrentHashMap()
+    internal val pinCodes: MutableMap<String, String> = ConcurrentHashMap()
     private var transport = DEFAULT_TRANSPORT
 
     private val scanByNameCallback: ScanCallback = object : ScanCallback() {
@@ -611,7 +611,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      *
      * @param batch the map of peripherals and their callbacks to autoconnect to
      */
-    fun autoConnectPeripheralsBatch(batch: Map<BluetoothPeripheral, BluetoothPeripheralCallback>) {
+    fun autoConnectBatch(batch: Map<BluetoothPeripheral, BluetoothPeripheralCallback>) {
         if (!bluetoothAdapter.isEnabled) {
             Logger.e(TAG, CANNOT_CONNECT_TO_PERIPHERAL_BECAUSE_BLUETOOTH_IS_OFF)
             return

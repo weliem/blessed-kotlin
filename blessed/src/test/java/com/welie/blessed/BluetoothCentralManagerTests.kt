@@ -7,6 +7,7 @@ import android.bluetooth.le.*
 import android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Handler
@@ -483,7 +484,7 @@ class BluetoothCentralManagerTests {
     }
 
     @Test
-    fun `Given a connected peripheral, when getConnectedPeripherals is called, the it returns the peripheral`() {
+    fun `Given a connected peripheral, when getConnectedPeripherals is called, then it returns the peripheral`() {
         // Given
         every { bluetoothAdapter.isEnabled } returns true
         val peripheral = mockk<BluetoothPeripheral>()
@@ -511,6 +512,81 @@ class BluetoothCentralManagerTests {
 
         // Then
         assertEquals(0, central.getConnectedPeripherals().size)
+    }
+
+    @Test
+    fun `Given no connected peripherals, when getConnectedPeripherals is callled, then it returns an empty list`() {
+        // When
+        val connectedPeripherals = central.getConnectedPeripherals()
+
+        // Then
+        assertEquals(0, connectedPeripherals.size)
+    }
+
+    @Test
+    fun `Given a connected peripheral, when cancelConnection is called, then it disconnects`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns false
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.connect() } returns Unit
+        every { peripheral.cancelConnection() } returns Unit
+        central.connect(peripheral, peripheralCallback)
+        central.internalCallback.connected(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // When
+        central.cancelConnection(peripheral)
+
+        // Then
+        verify { peripheral.cancelConnection() }
+    }
+
+    @Test
+    fun `Given a autoconnecting an uncached peripheral, when cancelConnection is called, then it disconnects`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns true
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.connect() } returns Unit
+        every { peripheral.cancelConnection() } returns Unit
+        central.autoConnect(peripheral, peripheralCallback)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // When
+        central.cancelConnection(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onDisconnected(peripheral, HciStatus.SUCCESS) }
+    }
+
+    @Test
+    fun `Given a connecting peripheral, when cancelConnection is called, then it disconnects`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns false
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.connect() } returns Unit
+        every { peripheral.cancelConnection() } returns Unit
+        central.connect(peripheral, peripheralCallback)
+        central.internalCallback.connecting(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // When
+        central.cancelConnection(peripheral)
+
+        // Then
+        verify { peripheral.cancelConnection() }
     }
 
     @Test
@@ -619,6 +695,214 @@ class BluetoothCentralManagerTests {
 
         // Verify
         verify { peripheral.connect() }
+    }
+
+    @Test
+    fun `Given a batch of cached and uncached peripherals, when autoconnect is called, then cached peripherals are autoconnected directly and unchached are scanned`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val device = getDevice(address = DEVICE_ADDRESS)
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns true
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.autoConnect() } returns Unit
+        every { peripheral.device } returns device
+
+        val device2 = getDevice(address = "11:22:33:44:55:66")
+        val peripheral2 = mockk<BluetoothPeripheral>()
+        every { peripheral2.address } returns "11:22:33:44:55:66"
+        every { peripheral2.isUncached } returns false
+        every { peripheral2.type } returns PeripheralType.LE
+        every { peripheral2.peripheralCallback = any() } returns Unit
+        every { peripheral2.autoConnect() } returns Unit
+        every { peripheral2.device } returns device2
+        val batch = HashMap<BluetoothPeripheral, BluetoothPeripheralCallback>()
+        batch[peripheral] = peripheralCallback
+        batch[peripheral2] = peripheralCallback
+
+        // When
+        central.autoConnectBatch(batch)
+
+        // Then
+        verify(exactly = 0) { peripheral.autoConnect() }
+        verify { peripheral2.autoConnect() }
+        val filters = slot<List<ScanFilter>>()
+        verify { scanner.startScan(capture(filters), any(), any<ScanCallback>()) }
+        assertEquals(DEVICE_ADDRESS, filters.captured[0].deviceAddress)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `When getPeripheral is called with an invalid address, then an exception is thrown`() {
+        // Get peripheral and supply lowercase mac address, which is not allowed
+        central.getPeripheral("ac:de:ef:12:34:56")
+    }
+
+    @Test
+    fun `Given a connected peripheral, when getPeripheral is called for it, then the same peripheral is returned`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val device = getDevice(address = DEVICE_ADDRESS)
+        val peripheral = getConnectedPeripheral(device)
+
+        // When
+        val peripheral2 = central.getPeripheral(DEVICE_ADDRESS)
+
+        // Then
+        assertEquals(peripheral, peripheral2)
+    }
+
+    @Test
+    fun `When setPinCode is called with an valid pincode and address, then it returns true and it is stored`() {
+        // When
+        val result = central.setPinCodeForPeripheral(DEVICE_ADDRESS, "123456")
+
+        // Then
+        assertTrue(result)
+        assertTrue(central.pinCodes.size == 1)
+        assertTrue(central.pinCodes[DEVICE_ADDRESS] == "123456")
+    }
+
+    @Test
+    fun `When setPinCode is called with an invalid address, then it returns false and it is not stored`() {
+        // When
+        val result = central.setPinCodeForPeripheral("12:12", "123456")
+
+        // Then
+        assertFalse(result)
+        assertTrue(central.pinCodes.isEmpty())
+    }
+
+    @Test
+    fun `When setPinCode is called with an invalid pincode, then it returns false and it is not stored`() {
+        // When
+        val result = central.setPinCodeForPeripheral(DEVICE_ADDRESS, "1234567")
+
+        // Then
+        assertFalse(result)
+        assertTrue(central.pinCodes.isEmpty())
+    }
+
+    @Test
+    fun `Given a connected peripheral, when bluetooth is turning off, then it is disconnected`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val device = getDevice(address = DEVICE_ADDRESS)
+        val peripheral = getConnectedPeripheral(device)
+
+        // When
+        val intent = Intent(BluetoothAdapter.ACTION_STATE_CHANGED)
+        intent.putExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_TURNING_OFF)
+        getAdapterStateReceiver()!!.onReceive(context, intent)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onBluetoothAdapterStateChanged(BluetoothAdapter.STATE_TURNING_OFF) }
+        verify { peripheral.cancelConnection() }
+    }
+
+    @Test
+    fun `Given a connected peripheral, when bluetooth is turned off, then it is disconnected`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val device = getDevice(address = DEVICE_ADDRESS)
+        val peripheral = getConnectedPeripheral(device)
+
+        // When
+        val intent = Intent(BluetoothAdapter.ACTION_STATE_CHANGED)
+        intent.putExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF)
+        getAdapterStateReceiver()!!.onReceive(context, intent)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Then
+        verify { callback.onBluetoothAdapterStateChanged(BluetoothAdapter.STATE_OFF) }
+        verify { peripheral.disconnectWhenBluetoothOff() }
+    }
+
+    @Test
+    fun `When close is called, then the adapterstate receiver is unregistered`() {
+        // When
+        central.close()
+
+        // Then
+        val adapterStateReceiver = getAdapterStateReceiver()
+        verify { context.unregisterReceiver(adapterStateReceiver) }
+    }
+
+    @Test
+    fun `Given a transport type is set, then it is stored`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+
+        // When
+        central.setTransport(Transport.BR_EDR)
+
+        // Then
+        assertEquals(Transport.BR_EDR, central.getTransport())
+    }
+
+    @Test
+    fun `Given a transport is set, the the any peripheral will use it`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val device = getDevice(address = DEVICE_ADDRESS)
+        every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS)} returns device
+        central.setTransport(Transport.BR_EDR)
+
+        // When
+        val peripheral = central.getPeripheral(DEVICE_ADDRESS)
+
+        // Then
+        assertEquals(Transport.BR_EDR, peripheral.transport)
+    }
+
+    @Test
+    fun `Given a connected peripheral, when createBond is called, then the bond is created`() {
+        // Given
+        every { bluetoothAdapter.isEnabled } returns true
+        val device = getDevice(address = DEVICE_ADDRESS)
+        val peripheral = getUnConnectedPeripheral(device)
+
+        // When
+        central.createBond(peripheral, peripheralCallback)
+
+        // Then
+        verify { peripheral.createBond() }
+    }
+
+    private fun getAdapterStateReceiver(): BroadcastReceiver? {
+        for (i in intentFilterCapturedList.indices) {
+            if(intentFilterCapturedList[i].hasAction(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                return broadcastReceiverCapturedList[i]
+            }
+        }
+        return null
+    }
+
+    fun getConnectedPeripheral(device: BluetoothDevice): BluetoothPeripheral {
+        val peripheral = getUnConnectedPeripheral(device)
+
+        central.connect(peripheral, peripheralCallback)
+        central.internalCallback.connected(peripheral)
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        return peripheral
+    }
+
+    fun getUnConnectedPeripheral(device: BluetoothDevice): BluetoothPeripheral {
+        val peripheral = mockk<BluetoothPeripheral>()
+        every { peripheral.address } returns DEVICE_ADDRESS
+        every { peripheral.isUncached } returns false
+        every { peripheral.type } returns PeripheralType.LE
+        every { peripheral.peripheralCallback = any() } returns Unit
+        every { peripheral.connect() } returns Unit
+        every { peripheral.cancelConnection() } returns Unit
+        every { peripheral.disconnectWhenBluetoothOff() } returns Unit
+        every { peripheral.createBond() } returns true
+        every { peripheral.device } returns device
+
+        return peripheral
     }
 
     private fun getScanResult(device: BluetoothDevice): ScanResult {
