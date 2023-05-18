@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.library'
+    id 'maven-publish'
     id 'org.jetbrains.kotlin.android'
 }
 
@@ -36,13 +37,23 @@ android {
 
 dependencies {
     implementation 'com.jakewharton.timber:timber:5.0.1'
-//    implementation 'androidx.core:core-ktx:+'
-//    implementation 'androidx.core:core-ktx:1.9.0'
-//    implementation 'androidx.appcompat:appcompat:1.6.1'
-//    implementation 'com.google.android.material:material:1.8.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'io.mockk:mockk:1.13.4'
     testImplementation "org.robolectric:robolectric:4.9"
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            // Creates a Maven publication called "release".
+            release(MavenPublication) {
+                from components.release
+                groupId = 'com.github.weliem'
+                artifactId = 'blessed-kotlin'
+                version = '3.0.0'
+            }
+        }
+    }
 }
