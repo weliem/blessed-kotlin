@@ -131,7 +131,7 @@ class BluetoothCentralManagerTests {
         val serviceUUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
 
         // When
-        central.scanForPeripheralsWithServices(arrayOf(serviceUUID))
+        central.scanForPeripheralsWithServices(listOf(serviceUUID))
 
         // Then
         val filters = slot<List<ScanFilter>>()
@@ -149,7 +149,7 @@ class BluetoothCentralManagerTests {
         val address2 = "23:54:34:12:76:23"
 
         // When
-        central.scanForPeripheralsWithAddresses(arrayOf(address1, address2))
+        central.scanForPeripheralsWithAddresses(listOf(address1, address2))
 
         // Then
         val filters = slot<List<ScanFilter>>()
@@ -166,7 +166,7 @@ class BluetoothCentralManagerTests {
         every { bluetoothAdapter.isEnabled } returns true
 
         // When
-        central.scanForPeripheralsWithAddresses(arrayOf())
+        central.scanForPeripheralsWithAddresses(listOf())
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -175,7 +175,7 @@ class BluetoothCentralManagerTests {
         every { bluetoothAdapter.isEnabled } returns true
 
         // When
-        central.scanForPeripheralsWithNames(arrayOf())
+        central.scanForPeripheralsWithNames(listOf())
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -184,7 +184,7 @@ class BluetoothCentralManagerTests {
         every { bluetoothAdapter.isEnabled } returns true
 
         // When
-        central.scanForPeripheralsWithServices(arrayOf())
+        central.scanForPeripheralsWithServices(listOf())
     }
 
 
@@ -199,7 +199,7 @@ class BluetoothCentralManagerTests {
         UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
 
         // When
-        central.scanForPeripheralsWithNames(arrayOf("SomeDevice"))
+        central.scanForPeripheralsWithNames(listOf("SomeDevice"))
         verify { scanner.startScan(any(), any(), capture(scanCallback)) }
         scanCallback.captured.onScanResult(CALLBACK_TYPE_ALL_MATCHES, scanResult)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
@@ -246,7 +246,7 @@ class BluetoothCentralManagerTests {
         every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS) } returns device
 
         // When
-        central.scanForPeripheralsWithNames(arrayOf(DEVICE_NAME))
+        central.scanForPeripheralsWithNames(listOf(DEVICE_NAME))
         verify { scanner.startScan(any(), any(), capture(scanCallback)) }
         scanCallback.captured.onScanResult(CALLBACK_TYPE_ALL_MATCHES, scanResult)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
@@ -288,7 +288,7 @@ class BluetoothCentralManagerTests {
         every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS) } returns device
 
         // When
-        central.scanForPeripheralsWithNames(arrayOf("Test"))
+        central.scanForPeripheralsWithNames(listOf("Test"))
         verify { scanner.startScan(any(), any(), capture(scanCallback)) }
         scanCallback.captured.onScanFailed(ScanFailure.OUT_OF_HARDWARE_RESOURCES.value)
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks()

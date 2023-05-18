@@ -62,7 +62,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
 
     private val reconnectPeripheralAddresses: MutableList<String> = ArrayList()
     private val reconnectCallbacks: MutableMap<String, BluetoothPeripheralCallback?> = ConcurrentHashMap()
-    private var scanPeripheralNames = emptyArray<String>()
+    private var scanPeripheralNames = emptyList<String>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var timeoutRunnable: Runnable? = null
     private var autoConnectRunnable: Runnable? = null
@@ -303,7 +303,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      *
      * @param serviceUUIDs an array of service UUIDs
      */
-    fun scanForPeripheralsWithServices(serviceUUIDs: Array<UUID>) {
+    fun scanForPeripheralsWithServices(serviceUUIDs: List<UUID>) {
         require(serviceUUIDs.isNotEmpty()) { "at least one service UUID  must be supplied" }
 
         val filters: MutableList<ScanFilter> = ArrayList()
@@ -324,7 +324,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      *
      * @param peripheralNames array of partial peripheral names
      */
-    fun scanForPeripheralsWithNames(peripheralNames: Array<String>) {
+    fun scanForPeripheralsWithNames(peripheralNames: List<String>) {
         require(peripheralNames.isNotEmpty()) { "at least one peripheral name must be supplied" }
 
         // Start the scanner with no filter because we'll do the filtering ourselves
@@ -337,7 +337,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      *
      * @param peripheralAddresses array of peripheral mac addresses to scan for
      */
-    fun scanForPeripheralsWithAddresses(peripheralAddresses: Array<String>) {
+    fun scanForPeripheralsWithAddresses(peripheralAddresses: List<String>) {
         require(peripheralAddresses.isNotEmpty()) { "at least one peripheral address must be supplied" }
 
         val filters: MutableList<ScanFilter> = ArrayList()
