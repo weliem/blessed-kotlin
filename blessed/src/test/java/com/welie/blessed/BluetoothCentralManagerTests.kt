@@ -265,7 +265,6 @@ class BluetoothCentralManagerTests {
         // Given
         val scanCallback = slot<ScanCallback>()
         val device = getDevice(address = DEVICE_ADDRESS)
-        val scanResult = getScanResult(device)
         every { bluetoothAdapter.isEnabled } returns true
         every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS) } returns device
 
@@ -285,7 +284,6 @@ class BluetoothCentralManagerTests {
         // Given
         val scanCallback = slot<ScanCallback>()
         val device = getDevice(address = DEVICE_ADDRESS)
-        val scanResult = getScanResult(device)
         every { bluetoothAdapter.isEnabled } returns true
         every { bluetoothAdapter.getRemoteDevice(DEVICE_ADDRESS) } returns device
 
