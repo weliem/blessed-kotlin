@@ -38,7 +38,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * successfully.
      * @param service The service that has been added
      */
-    fun onServiceAdded(status: GattStatus, service: BluetoothGattService) {}
+    open fun onServiceAdded(status: GattStatus, service: BluetoothGattService) {}
 
     /**
      * A remote central has requested to read a local characteristic.
@@ -51,7 +51,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param bluetoothCentral the central that is doing the request
      * @param characteristic   the characteristic to be read
      */
-    fun onCharacteristicRead(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic): ReadResponse {
+    open fun onCharacteristicRead(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic): ReadResponse {
         return ReadResponse(GattStatus.SUCCESS, ByteArray(0))
     }
 
@@ -71,7 +71,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param value            the value the central wants to write
      * @return GattStatus.SUCCESS if the value is acceptable, otherwise an appropriate status
      */
-    fun onCharacteristicWrite(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic, value: ByteArray): GattStatus {
+    open fun onCharacteristicWrite(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic, value: ByteArray): GattStatus {
         return GattStatus.SUCCESS
     }
 
@@ -86,7 +86,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param characteristic   the characteristic that was written
      * @param value            the value the central has written
      */
-    fun onCharacteristicWriteCompleted(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic, value: ByteArray) {}
+    open fun onCharacteristicWriteCompleted(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic, value: ByteArray) {}
 
     /**
      * A remote central has requested to read a local descriptor.
@@ -99,7 +99,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param bluetoothCentral the central that is doing the request
      * @param descriptor       the descriptor to be read
      */
-    fun onDescriptorRead(bluetoothCentral: BluetoothCentral, descriptor: BluetoothGattDescriptor): ReadResponse {
+    open fun onDescriptorRead(bluetoothCentral: BluetoothCentral, descriptor: BluetoothGattDescriptor): ReadResponse {
         return ReadResponse(GattStatus.SUCCESS, ByteArray(0))
     }
 
@@ -119,7 +119,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param value            the value the central wants to write
      * @return GattStatus.SUCCESS if the value is acceptable, otherwise an appropriate status
      */
-    fun onDescriptorWrite(bluetoothCentral: BluetoothCentral, descriptor: BluetoothGattDescriptor, value: ByteArray): GattStatus {
+    open fun onDescriptorWrite(bluetoothCentral: BluetoothCentral, descriptor: BluetoothGattDescriptor, value: ByteArray): GattStatus {
         return GattStatus.SUCCESS
     }
 
@@ -134,7 +134,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param descriptor       the descriptor that was written
      * @param value            the value the central has written
      */
-    fun onDescriptorWriteCompleted(bluetoothCentral: BluetoothCentral, descriptor: BluetoothGattDescriptor, value: ByteArray) {}
+    open fun onDescriptorWriteCompleted(bluetoothCentral: BluetoothCentral, descriptor: BluetoothGattDescriptor, value: ByteArray) {}
 
     /**
      * A remote central has enabled notifications or indications for a characteristic
@@ -142,7 +142,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param bluetoothCentral the central
      * @param characteristic   the characteristic
      */
-    fun onNotifyingEnabled(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic) {}
+    open fun onNotifyingEnabled(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic) {}
 
     /**
      * A remote central has disabled notifications or indications for a characteristic
@@ -150,7 +150,7 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param bluetoothCentral the central
      * @param characteristic   the characteristic
      */
-    fun onNotifyingDisabled(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic) {}
+    open fun onNotifyingDisabled(bluetoothCentral: BluetoothCentral, characteristic: BluetoothGattCharacteristic) {}
 
     /**
      * A notification has been sent to a central
@@ -160,38 +160,38 @@ abstract class BluetoothPeripheralManagerCallback {
      * @param characteristic   the characteristic for which the notification was sent
      * @param status           the status of the operation
      */
-    fun onNotificationSent(bluetoothCentral: BluetoothCentral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) {}
+    open fun onNotificationSent(bluetoothCentral: BluetoothCentral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) {}
 
     /**
      * A remote central has connected
      *
      * @param bluetoothCentral the central
      */
-    fun onCentralConnected(bluetoothCentral: BluetoothCentral) {}
+    open fun onCentralConnected(bluetoothCentral: BluetoothCentral) {}
 
     /**
      * A remote central has disconnected
      *
      * @param bluetoothCentral the central
      */
-    fun onCentralDisconnected(bluetoothCentral: BluetoothCentral) {}
+    open fun onCentralDisconnected(bluetoothCentral: BluetoothCentral) {}
 
     /**
      * Advertising has successfully started
      *
      * @param settingsInEffect the AdvertiseSettings that are currently active
      */
-    fun onAdvertisingStarted(settingsInEffect: AdvertiseSettings) {}
+    open fun onAdvertisingStarted(settingsInEffect: AdvertiseSettings) {}
 
     /**
      * Advertising has failed
      *
      * @param advertiseError the error explaining why the advertising failed
      */
-    fun onAdvertiseFailure(advertiseError: AdvertiseError) {}
+    open fun onAdvertiseFailure(advertiseError: AdvertiseError) {}
 
     /**
      * Advertising has stopped
      */
-    fun onAdvertisingStopped() {}
+    open fun onAdvertisingStopped() {}
 }

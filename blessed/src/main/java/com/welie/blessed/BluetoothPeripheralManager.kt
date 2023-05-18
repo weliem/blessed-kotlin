@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * This class represent a peripheral running on the local phone
  */
 @SuppressLint("MissingPermission")
-@Suppress("unused")
+@Suppress("unused", "deprecation")
 class BluetoothPeripheralManager(private val context: Context, private val bluetoothManager: BluetoothManager, private val callback: BluetoothPeripheralManagerCallback) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val bluetoothAdapter: BluetoothAdapter = bluetoothManager.adapter
@@ -209,7 +209,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                     val response = callback.onDescriptorRead(bluetoothCentral, descriptor)
                     Objects.requireNonNull(response, "no valid ReadResponse returned")
                     status = response.status
-                    currentReadValue = response.value!!
+                    currentReadValue = response.value
                 }
 
                 // Get the byte array starting at the offset
@@ -314,32 +314,30 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                 mainHandler.post {
                     var status = GattStatus.SUCCESS
                     if (writeLongCharacteristicTemporaryBytes.isNotEmpty()) {
-                        val characteristic = writeLongCharacteristicTemporaryBytes.keys.iterator().next()  // TODO improve this
-                        if (characteristic != null) {
-                            // Ask callback if value is ok or not
-                            status = callback.onCharacteristicWrite(bluetoothCentral, characteristic, writeLongCharacteristicTemporaryBytes[characteristic]!!)
-                            if (status == GattStatus.SUCCESS) {
-                                val value = writeLongCharacteristicTemporaryBytes[characteristic]
-                                if (Build.VERSION.SDK_INT < 33) {
-                                    characteristic.value = value
-                                }
-                                writeLongCharacteristicTemporaryBytes.clear()
-                                callback.onCharacteristicWriteCompleted(bluetoothCentral, characteristic, value!!)
+                        val characteristic = writeLongCharacteristicTemporaryBytes.keys.first()
+
+                        // Ask callback if value is ok or not
+                        status = callback.onCharacteristicWrite(bluetoothCentral, characteristic, writeLongCharacteristicTemporaryBytes[characteristic]!!)
+                        if (status == GattStatus.SUCCESS) {
+                            val value = writeLongCharacteristicTemporaryBytes[characteristic]
+                            if (Build.VERSION.SDK_INT < 33) {
+                                characteristic.value = value
                             }
+                            writeLongCharacteristicTemporaryBytes.clear()
+                            callback.onCharacteristicWriteCompleted(bluetoothCentral, characteristic, value!!)
                         }
                     } else if (writeLongDescriptorTemporaryBytes.isNotEmpty()) {
-                        val descriptor = writeLongDescriptorTemporaryBytes.keys.iterator().next()
-                        if (descriptor != null) {
-                            // Ask callback if value is ok or not
-                            status = callback.onDescriptorWrite(bluetoothCentral, descriptor, writeLongDescriptorTemporaryBytes[descriptor]!!)
-                            if (status == GattStatus.SUCCESS) {
-                                val value = writeLongDescriptorTemporaryBytes[descriptor]
-                                if (Build.VERSION.SDK_INT < 33) {
-                                    descriptor.value = value
-                                }
-                                writeLongDescriptorTemporaryBytes.clear()
-                                callback.onDescriptorWriteCompleted(bluetoothCentral, descriptor, value!!)
+                        val descriptor = writeLongDescriptorTemporaryBytes.keys.first()
+
+                        // Ask callback if value is ok or not
+                        status = callback.onDescriptorWrite(bluetoothCentral, descriptor, writeLongDescriptorTemporaryBytes[descriptor]!!)
+                        if (status == GattStatus.SUCCESS) {
+                            val value = writeLongDescriptorTemporaryBytes[descriptor]
+                            if (Build.VERSION.SDK_INT < 33) {
+                                descriptor.value = value
                             }
+                            writeLongDescriptorTemporaryBytes.clear()
+                            callback.onDescriptorWriteCompleted(bluetoothCentral, descriptor, value!!)
                         }
                     }
                     bluetoothGattServer.sendResponse(device, requestId, status.value, 0, null)

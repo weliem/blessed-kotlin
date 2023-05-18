@@ -42,7 +42,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * This class is a wrapper around the [BluetoothDevice] and takes care of operation queueing, some Android bugs, and provides several convenience functions.
  */
 @SuppressLint("MissingPermission")
-@Suppress("unused")
+@Suppress("unused", "deprecation")
 class BluetoothPeripheral internal constructor(
     private val context: Context,
     internal var device: BluetoothDevice,
@@ -180,6 +180,7 @@ class BluetoothPeripheral internal constructor(
         }
 
         //@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        @Deprecated("Deprecated in Java")
         override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
             if (Build.VERSION.SDK_INT < 33) {
                 onDescriptorRead(gatt, descriptor, status, descriptor.value)
@@ -192,6 +193,7 @@ class BluetoothPeripheral internal constructor(
         }
 
         //@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        @Deprecated("Deprecated in Java")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             if (Build.VERSION.SDK_INT < 33) {
                 onCharacteristicChanged(gatt, characteristic, characteristic.value)
@@ -208,6 +210,7 @@ class BluetoothPeripheral internal constructor(
             completedCommand()
         }
 
+        @Deprecated("Deprecated in Java")
         override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             if (Build.VERSION.SDK_INT < 33) {
                 onCharacteristicRead(gatt, characteristic, characteristic.value, status)
@@ -283,6 +286,7 @@ class BluetoothPeripheral internal constructor(
          * This callback is only called from Android 8 (Oreo) or higher. Not all phones seem to call this though...
          */
         fun onConnectionUpdated(gatt: BluetoothGatt, interval: Int, latency: Int, timeout: Int, status: Int) {
+            if (gatt != bluetoothGatt) return
             val gattStatus = GattStatus.fromValue(status)
             if (gattStatus == GattStatus.SUCCESS) {
                 val msg = String.format(Locale.ENGLISH, "connection parameters: interval=%.1fms latency=%d timeout=%ds", interval * 1.25f, latency, timeout / 100)
