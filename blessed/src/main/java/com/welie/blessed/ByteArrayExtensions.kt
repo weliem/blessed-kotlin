@@ -340,6 +340,10 @@ fun dateTimeByteArrayOf(calendar: Calendar): ByteArray {
     return value
 }
 
+fun dateTimeByteArray(): ByteArray {
+    return dateTimeByteArrayOf(Calendar.getInstance())
+}
+
 fun currentTimeByteArrayOf(calendar: Calendar): ByteArray {
     val value = ByteArray(10)
     value[0] = calendar[Calendar.YEAR].toByte()
@@ -353,6 +357,10 @@ fun currentTimeByteArrayOf(calendar: Calendar): ByteArray {
     value[8] = (calendar[Calendar.MILLISECOND] * 256 / 1000).toByte()
     value[9] = 1
     return value
+}
+
+fun currentTimeByteArray(): ByteArray {
+    return currentTimeByteArrayOf(Calendar.getInstance())
 }
 
 fun mergeArrays(vararg arrays: ByteArray): ByteArray {
