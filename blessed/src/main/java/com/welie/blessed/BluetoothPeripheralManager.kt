@@ -22,6 +22,7 @@
  */
 package com.welie.blessed
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.AdvertiseCallback
@@ -32,6 +33,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -49,6 +51,8 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
     private val mainHandler = Handler(Looper.getMainLooper())
     private val bluetoothAdapter: BluetoothAdapter = bluetoothManager.adapter
     private val bluetoothLeAdvertiser: BluetoothLeAdvertiser = bluetoothAdapter.bluetoothLeAdvertiser
+    var isAdvertising: Boolean = false
+        private set
 
     private var centralManager: BluetoothCentralManager? = null
     private val commandQueue: Queue<Runnable> = ConcurrentLinkedQueue()
@@ -376,6 +380,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
     internal val advertiseCallback: AdvertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             Logger.i(TAG, "advertising started")
+            isAdvertising = true
             mainHandler.post { callback.onAdvertisingStarted(settingsInEffect) }
         }
 
@@ -388,6 +393,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
 
     private fun onAdvertisingStopped() {
         Logger.i(TAG, "advertising stopped")
+        isAdvertising = false
         mainHandler.post { callback.onAdvertisingStopped() }
     }
 
@@ -422,6 +428,10 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         if (!bluetoothAdapter.isMultipleAdvertisementSupported) {
             Logger.e(TAG, "device does not support advertising")
         } else {
+            if (isAdvertising) {
+                Logger.d(TAG, "already advertising, stopping advertising first")
+                stopAdvertising()
+            }
             bluetoothLeAdvertiser.startAdvertising(settings, advertiseData, scanResponse, advertiseCallback)
         }
     }
@@ -433,6 +443,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         bluetoothLeAdvertiser.stopAdvertising(advertiseCallback)
         onAdvertisingStopped()
     }
+
 
     /**
      * Add a service to the peripheral
@@ -784,6 +795,30 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         return result
     }
 
+    fun permissionsGranted(): Boolean {
+        return getMissingPermissions().isEmpty()
+    }
+
+    fun getMissingPermissions(): Array<String> {
+        val missingPermissions: MutableList<String> = ArrayList()
+        for (requiredPermission in requiredPermissions) {
+            if (context.checkSelfPermission(requiredPermission) != PackageManager.PERMISSION_GRANTED) {
+                missingPermissions.add(requiredPermission)
+            }
+        }
+        return missingPermissions.toTypedArray()
+    }
+
+     val requiredPermissions: Array<String>
+        get() {
+            val targetSdkVersion = context.applicationInfo.targetSdkVersion
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && targetSdkVersion >= Build.VERSION_CODES.S) {
+                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && targetSdkVersion >= Build.VERSION_CODES.Q) {
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+            } else arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+
     companion object {
         private val TAG = BluetoothPeripheralManager::class.java.simpleName
         internal val CCC_DESCRIPTOR_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
@@ -797,7 +832,11 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         private const val ADDRESS_IS_NULL = "address is null"
     }
 
-    private val bluetoothGattServer: BluetoothGattServer = bluetoothManager.openGattServer(context, bluetoothGattServerCallback)
+    private lateinit var bluetoothGattServer: BluetoothGattServer
+
+    fun openGattServer() {
+        bluetoothGattServer = bluetoothManager.openGattServer(context, bluetoothGattServerCallback)
+    }
 
     /**
      * Create a BluetoothPeripheralManager

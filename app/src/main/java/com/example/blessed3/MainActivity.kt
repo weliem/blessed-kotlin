@@ -1,5 +1,8 @@
 package com.example.blessed3
 
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -39,6 +42,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun restartScanning() {
+        if (!BluetoothHandler.centralManager.isBluetoothEnabled) {
+            enableBleRequest.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            return
+        }
+
         if (BluetoothHandler.centralManager.permissionsGranted()) {
             BluetoothHandler.startScanning()
         } else {
@@ -62,4 +70,10 @@ class MainActivity : ComponentActivity() {
                 Timber.d("${it.key} = ${it.value}")
             }
         }
+
+    private val enableBleRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            restartScanning()
+        }
+    }
 }

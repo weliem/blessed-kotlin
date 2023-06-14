@@ -71,7 +71,7 @@ internal class HeartRateService(peripheralManager: BluetoothPeripheralManager) :
     }
 
     companion object {
-        private val HRS_SERVICE_UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb")
+        val HRS_SERVICE_UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb")
         private val HEARTRATE_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A37-0000-1000-8000-00805f9b34fb")
     }
 }

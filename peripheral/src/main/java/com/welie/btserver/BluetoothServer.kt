@@ -20,8 +20,10 @@ import timber.log.Timber
 import java.util.UUID
 
 @SuppressLint("MissingPermission")
-internal class BluetoothServer(context: Context) {
-    private val peripheralManager: BluetoothPeripheralManager
+class BluetoothServer(private val context: Context) {
+    var isInitialized = false
+    var peripheralManager: BluetoothPeripheralManager
+    private val bluetoothManager: BluetoothManager
     private val serviceImplementations = HashMap<BluetoothGattService, Service>()
     private val peripheralManagerCallback: BluetoothPeripheralManagerCallback = object : BluetoothPeripheralManagerCallback() {
         override fun onServiceAdded(status: GattStatus, service: BluetoothGattService) {}
@@ -86,7 +88,11 @@ internal class BluetoothServer(context: Context) {
         override fun onAdvertisingStopped() {}
     }
 
-    private fun startAdvertising(serviceUUID: UUID?) {
+    fun startAdvertising() {
+        startAdvertising(HeartRateService.HRS_SERVICE_UUID)
+    }
+
+     fun startAdvertising(serviceUUID: UUID?) {
         val advertiseSettings = AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
             .setConnectable(true)
@@ -109,17 +115,11 @@ internal class BluetoothServer(context: Context) {
         }
     }
 
-    init {
-        Timber.plant(Timber.DebugTree())
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    fun initialize() {
         val bluetoothAdapter = bluetoothManager.adapter
-        if (!bluetoothAdapter.isMultipleAdvertisementSupported) {
-            Timber.e("not supporting advertising")
-        }
-
-        // Set the adapter name as this is used when advertising
         bluetoothAdapter.name = Build.MODEL
-        peripheralManager = BluetoothPeripheralManager(context, bluetoothManager, peripheralManagerCallback)
+
+        peripheralManager.openGattServer()
         peripheralManager.removeAllServices()
         val dis = DeviceInformationService(peripheralManager)
         val cts = CurrentTimeService(peripheralManager)
@@ -128,18 +128,26 @@ internal class BluetoothServer(context: Context) {
         serviceImplementations[cts.service] = cts
         serviceImplementations[hrs.service] = hrs
         setupServices()
-        startAdvertising(hrs.service.uuid)
+        isInitialized = true
+    }
+
+    init {
+        Timber.plant(Timber.DebugTree())
+        bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        peripheralManager = BluetoothPeripheralManager(context, bluetoothManager, peripheralManagerCallback)
     }
 
     companion object {
+        @SuppressLint("StaticFieldLeak")
         private var instance: BluetoothServer? = null
+
         @JvmStatic
         @Synchronized
-        fun getInstance(context: Context): BluetoothServer? {
+        fun getInstance(context: Context): BluetoothServer {
             if (instance == null) {
                 instance = BluetoothServer(context.applicationContext)
             }
-            return instance
+            return instance!!
         }
     }
 }
