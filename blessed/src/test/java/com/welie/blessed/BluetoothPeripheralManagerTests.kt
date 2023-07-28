@@ -70,6 +70,7 @@ class BluetoothPeripheralManagerTests {
         every { bluetoothAdapter.bluetoothLeAdvertiser } returns bluetoothLeAdvertiser
         every { bluetoothAdapter.isMultipleAdvertisementSupported } returns true
         peripheralManager = BluetoothPeripheralManager(context, bluetoothManager, peripheralManagerCallback)
+        peripheralManager.openGattServer()
     }
 
     @Test
