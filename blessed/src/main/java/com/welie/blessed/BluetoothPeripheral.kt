@@ -845,13 +845,8 @@ class BluetoothPeripheral internal constructor(
      * @throws IllegalArgumentException if the characteristic does not support reading
      */
     fun readCharacteristic(characteristic: BluetoothGattCharacteristic): Boolean {
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
-
         if (doesNotSupportReading(characteristic)) {
-            val message = String.format("characteristic <%s> does not have read property", characteristic.uuid)
+            val message = "characteristic <${characteristic.uuid}> does not have read property"
             throw IllegalArgumentException(message)
         }
 
@@ -910,13 +905,8 @@ class BluetoothPeripheral internal constructor(
         require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
         require(value.size <= getMaximumWriteValueLength(writeType)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
 
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
-
         if (doesNotSupportWriteType(characteristic, writeType)) {
-            val message = String.format("characteristic <%s> does not support writeType '%s'", characteristic.uuid, writeType)
+            val message = "characteristic <${characteristic.uuid} does not support writeType '$writeType'"
             throw IllegalArgumentException(message)
         }
 
@@ -995,11 +985,6 @@ class BluetoothPeripheral internal constructor(
      * @return true if a read operation was successfully enqueued, otherwise false
      */
     fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean {
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
-
         return enqueue {
             if (isConnected) {
                 if (bluetoothGatt?.readDescriptor(descriptor) == true) {
@@ -1045,11 +1030,6 @@ class BluetoothPeripheral internal constructor(
     fun writeDescriptor(descriptor: BluetoothGattDescriptor, value: ByteArray): Boolean {
         require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
         require(value.size <= getMaximumWriteValueLength(WriteType.WITH_RESPONSE)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
-
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
 
         // Copy the value to avoid race conditions
         val bytesToWrite = copyOf(value)
@@ -1122,11 +1102,6 @@ class BluetoothPeripheral internal constructor(
      * @throws IllegalArgumentException if the CCC descriptor was not found or the characteristic does not support notifications or indications
      */
     private fun setNotify(characteristic: BluetoothGattCharacteristic, enable: Boolean): Boolean {
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
-
         // Get the Client Characteristic Configuration Descriptor for the characteristic
         val descriptor = characteristic.getDescriptor(CCC_DESCRIPTOR_UUID)
         if (descriptor == null) {
@@ -1179,10 +1154,6 @@ class BluetoothPeripheral internal constructor(
      * @return true if the operation was enqueued, false otherwise
      */
     fun readRemoteRssi(): Boolean {
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
         return enqueue {
             if (isConnected) {
                 if (bluetoothGatt?.readRemoteRssi() == false) {
@@ -1211,10 +1182,6 @@ class BluetoothPeripheral internal constructor(
      */
     fun requestMtu(mtu: Int): Boolean {
         require(!(mtu < DEFAULT_MTU || mtu > MAX_MTU)) { "mtu must be between 23 and 517" }
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
 
         return enqueue {
             if (isConnected) {
@@ -1238,11 +1205,6 @@ class BluetoothPeripheral internal constructor(
      * @return true if request was enqueued, false if not
      */
     fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
-        Objects.requireNonNull(priority, NO_VALID_PRIORITY_PROVIDED)
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
         return enqueue {
             if (isConnected) {
                 if (bluetoothGatt?.requestConnectionPriority(priority.value) == true) {
@@ -1271,11 +1233,6 @@ class BluetoothPeripheral internal constructor(
      * @return true if request was enqueued, false if not
      */
     fun setPreferredPhy(txPhy: PhyType, rxPhy: PhyType, phyOptions: PhyOptions): Boolean {
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
-
         return enqueue {
             if (isConnected) {
                 currentCommand = SET_PHY_TYPE_COMMAND
@@ -1299,11 +1256,6 @@ class BluetoothPeripheral internal constructor(
      * in [BluetoothPeripheralCallback.onPhyUpdate]
      */
     fun readPhy(): Boolean {
-        if (notConnected()) {
-            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
-            return false
-        }
-
         return enqueue {
             if (isConnected) {
                 bluetoothGatt?.readPhy()
@@ -1340,6 +1292,11 @@ class BluetoothPeripheral internal constructor(
      * @return true if the command was successfully enqueued, otherwise false
      */
     private fun enqueue(command: Runnable): Boolean {
+        if (notConnected()) {
+            Logger.e(TAG, PERIPHERAL_NOT_CONNECTED)
+            return false
+        }
+
         val result = commandQueue.add(command)
         if (result) {
             nextCommand()
@@ -1517,7 +1474,7 @@ class BluetoothPeripheral internal constructor(
      * @param source byte array to copy
      * @return non-null copy of the source byte array or an empty array if source was null
      */
-    fun copyOf(source: ByteArray?): ByteArray {
+    private fun copyOf(source: ByteArray?): ByteArray {
         return if (source == null) ByteArray(0) else Arrays.copyOf(source, source.size)
     }
 
