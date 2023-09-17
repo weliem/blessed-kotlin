@@ -30,6 +30,7 @@ import java.util.*
  * This class represent a remote Central
  */
 @SuppressLint("MissingPermission")
+@Suppress("unused")
 class BluetoothCentral internal constructor(val device: BluetoothDevice) {
     var currentMtu = 23
 
@@ -40,10 +41,16 @@ class BluetoothCentral internal constructor(val device: BluetoothDevice) {
     val bondState: BondState
         get() = BondState.fromValue(device.bondState)
 
+    /**
+     * Create a bond
+     */
     fun createBond(): Boolean {
         return device.createBond()
     }
 
+    /**
+     * Confirm pairing
+     */
     fun setPairingConfirmation(confirm: Boolean): Boolean {
         return device.setPairingConfirmation(confirm)
     }

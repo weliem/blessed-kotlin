@@ -280,13 +280,16 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
 
     private fun startScan(filters: List<ScanFilter>, scanSettings: ScanSettings, scanCallback: ScanCallback) {
         if (bleNotReady()) return
+
         if (isScanning) {
             Logger.e(TAG, "other scan still active, stopping scan")
             stopScan()
         }
+
         if (bluetoothScanner == null) {
             bluetoothScanner = bluetoothAdapter.bluetoothLeScanner
         }
+
         if (bluetoothScanner != null) {
             setScanTimer()
             currentCallback = scanCallback
@@ -377,6 +380,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      */
     private fun scanForAutoConnectPeripherals() {
         if (bleNotReady()) return
+
         if (autoConnectScanner != null) {
             stopAutoconnectScan()
         }
@@ -503,10 +507,12 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
                 Logger.w(TAG, "already connected to %s'", peripheral.address)
                 return
             }
+
             if (unconnectedPeripherals.containsKey(peripheral.address)) {
                 Logger.w(TAG, "already connecting to %s'", peripheral.address)
                 return
             }
+
             if (!bluetoothAdapter.isEnabled) {
                 Logger.e(TAG, CANNOT_CONNECT_TO_PERIPHERAL_BECAUSE_BLUETOOTH_IS_OFF)
                 return
@@ -517,6 +523,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             if (peripheral.isUncached) {
                 Logger.w(TAG, "peripheral with address '%s' is not in the Bluetooth cache, hence connection may fail", peripheral.address)
             }
+
             peripheral.peripheralCallback = peripheralCallback
             peripheral.createBond()
         }
@@ -533,10 +540,12 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
                 Logger.w(TAG, "already connected to %s'", peripheral.address)
                 return
             }
+
             if (unconnectedPeripherals[peripheral.address] != null) {
                 Logger.w(TAG, "already issued autoconnect for '%s' ", peripheral.address)
                 return
             }
+
             if (!bluetoothAdapter.isEnabled) {
                 Logger.e(TAG, CANNOT_CONNECT_TO_PERIPHERAL_BECAUSE_BLUETOOTH_IS_OFF)
                 return
@@ -550,10 +559,12 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
                 autoConnectPeripheralByScan(peripheral.address, peripheralCallback)
                 return
             }
+
             if (peripheral.type == PeripheralType.CLASSIC) {
                 Logger.e(TAG, "peripheral does not support Bluetooth LE")
                 return
             }
+
             peripheral.peripheralCallback = peripheralCallback
             scannedPeripherals.remove(peripheral.address)
             unconnectedPeripherals[peripheral.address] = peripheral
@@ -807,10 +818,12 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             Logger.e(TAG, "%s is not a valid address. Make sure all alphabetic characters are uppercase.", peripheralAddress)
             return false
         }
+
         if (pin.length != 6) {
             Logger.e(TAG, "%s is not 6 digits long", pin)
             return false
         }
+
         pinCodes[peripheralAddress] = pin
         return true
     }
@@ -908,8 +921,6 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             }
         }
     }
-
-
 
     private fun handleAdapterState(state: Int) {
         when (state) {

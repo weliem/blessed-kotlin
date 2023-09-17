@@ -32,13 +32,11 @@ abstract class BluetoothPeripheralCallback {
     /**
      * Callback invoked when the list of remote services, characteristics and descriptors
      * for the remote peripheral has been discovered.
-     *
      */
     open fun onServicesDiscovered(peripheral: BluetoothPeripheral) {}
 
     /**
      * Callback invoked when the notification state of a characteristic has changed.
-     *
      *
      * Use [BluetoothPeripheral.isNotifying] to get the current notification state of the characteristic
      *
