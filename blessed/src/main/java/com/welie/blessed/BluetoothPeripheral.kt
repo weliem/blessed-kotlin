@@ -183,7 +183,7 @@ class BluetoothPeripheral internal constructor(
         @Deprecated("Deprecated in Java")
         override fun onDescriptorRead(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
             if (Build.VERSION.SDK_INT < 33) {
-                onDescriptorRead(gatt, descriptor, status, descriptor.value)
+                onDescriptorRead(gatt, descriptor, status, nonnullOf(descriptor.value))
             }
         }
 
@@ -654,7 +654,7 @@ class BluetoothPeripheral internal constructor(
                 bluetoothGattCallback.onConnectionStateChange(bluetoothGatt, HciStatus.SUCCESS.value, BluetoothProfile.STATE_DISCONNECTING)
             }
             mainHandler.post {
-                if (state == BluetoothProfile.STATE_DISCONNECTING && bluetoothGatt != null) {
+                if (state == BluetoothProfile.STATE_DISCONNECTING) {
                     bluetoothGatt?.disconnect()
                     Logger.i(TAG, "force disconnect '%s' (%s)", name, address)
                 }
@@ -851,15 +851,11 @@ class BluetoothPeripheral internal constructor(
         }
 
         return enqueue {
-            if (isConnected) {
-                if (bluetoothGatt?.readCharacteristic(characteristic) == true) {
-                    Logger.d(TAG, "reading characteristic <%s>", characteristic.uuid)
-                    nrTries++
-                } else {
-                    Logger.e(TAG, "readCharacteristic failed for characteristic: %s", characteristic.uuid)
-                    completedCommand()
-                }
+            if (bluetoothGatt?.readCharacteristic(characteristic) == true) {
+                Logger.d(TAG, "reading characteristic <%s>", characteristic.uuid)
+                nrTries++
             } else {
+                Logger.e(TAG, "readCharacteristic failed for characteristic: %s", characteristic.uuid)
                 completedCommand()
             }
         }
@@ -913,24 +909,21 @@ class BluetoothPeripheral internal constructor(
         // Copy the value to avoid race conditions
         val bytesToWrite = copyOf(value)
         return enqueue {
-            if (isConnected) {
-                if (willCauseLongWrite(bytesToWrite, writeType)) {
-                    // Android will turn this into a Long Write because it is larger than the MTU - 3.
-                    // When doing a Long Write the byte array will be automatically split in chunks of size MTU - 3.
-                    // However, the peripheral's firmware must also support it, so it is not guaranteed to work.
-                    // Long writes are also very inefficient because of the confirmation of each write operation.
-                    // So it is better to increase MTU if possible. Hence a warning if this write becomes a long write...
-                    // See https://stackoverflow.com/questions/48216517/rxandroidble-write-only-sends-the-first-20b
-                    Logger.w(TAG, "value byte array is longer than allowed by MTU, write will fail if peripheral does not support long writes")
-                }
-                if (internalWriteCharacteristic(characteristic, bytesToWrite, writeType)) {
-                    Logger.d(TAG, "writing <%s> to characteristic <%s>", bytesToWrite.asHexString(), characteristic.uuid)
-                    nrTries++
-                } else {
-                    Logger.e(TAG, "writeCharacteristic failed for characteristic: %s", characteristic.uuid)
-                    completedCommand()
-                }
+            if (willCauseLongWrite(bytesToWrite, writeType)) {
+                // Android will turn this into a Long Write because it is larger than the MTU - 3.
+                // When doing a Long Write the byte array will be automatically split in chunks of size MTU - 3.
+                // However, the peripheral's firmware must also support it, so it is not guaranteed to work.
+                // Long writes are also very inefficient because of the confirmation of each write operation.
+                // So it is better to increase MTU if possible. Hence a warning if this write becomes a long write...
+                // See https://stackoverflow.com/questions/48216517/rxandroidble-write-only-sends-the-first-20b
+                Logger.w(TAG, "value byte array is longer than allowed by MTU, write will fail if peripheral does not support long writes")
+            }
+
+            if (internalWriteCharacteristic(characteristic, bytesToWrite, writeType)) {
+                Logger.d(TAG, "writing <%s> to characteristic <%s>", bytesToWrite.asHexString(), characteristic.uuid)
+                nrTries++
             } else {
+                Logger.e(TAG, "writeCharacteristic failed for characteristic: %s", characteristic.uuid)
                 completedCommand()
             }
         }
@@ -986,15 +979,11 @@ class BluetoothPeripheral internal constructor(
      */
     fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean {
         return enqueue {
-            if (isConnected) {
-                if (bluetoothGatt?.readDescriptor(descriptor) == true) {
-                    Logger.d(TAG, "reading descriptor <%s>", descriptor.uuid)
-                    nrTries++
-                } else {
-                    Logger.e(TAG, "readDescriptor failed for characteristic: %s", descriptor.uuid)
-                    completedCommand()
-                }
+            if (bluetoothGatt?.readDescriptor(descriptor) == true) {
+                Logger.d(TAG, "reading descriptor <%s>", descriptor.uuid)
+                nrTries++
             } else {
+                Logger.e(TAG, "readDescriptor failed for characteristic: %s", descriptor.uuid)
                 completedCommand()
             }
         }
@@ -1034,15 +1023,11 @@ class BluetoothPeripheral internal constructor(
         // Copy the value to avoid race conditions
         val bytesToWrite = copyOf(value)
         return enqueue {
-            if (isConnected) {
-                if (internalWriteDescriptor(descriptor, bytesToWrite)) {
-                    Logger.d(TAG, "writing <%s> to descriptor <%s>", bytesToWrite.asHexString(), descriptor.uuid)
-                    nrTries++
-                } else {
-                    Logger.e(TAG, "writeDescriptor failed for descriptor: %s", descriptor.uuid)
-                    completedCommand()
-                }
+            if (internalWriteDescriptor(descriptor, bytesToWrite)) {
+                Logger.d(TAG, "writing <%s> to descriptor <%s>", bytesToWrite.asHexString(), descriptor.uuid)
+                nrTries++
             } else {
+                Logger.e(TAG, "writeDescriptor failed for descriptor: %s", descriptor.uuid)
                 completedCommand()
             }
         }
@@ -1122,17 +1107,12 @@ class BluetoothPeripheral internal constructor(
         }
         val finalValue = if (enable) value else BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
 
-        return enqueue(Runnable {
-            if (notConnected()) {
-                completedCommand()
-                return@Runnable
-            }
-
+        return enqueue {
             // First try to set notification for Gatt object
             if (bluetoothGatt?.setCharacteristicNotification(characteristic, enable) == false) {
                 Logger.e(TAG, "setCharacteristicNotification failed for characteristic: %s", characteristic.uuid)
                 completedCommand()
-                return@Runnable
+                return@enqueue
             }
 
             // Then write to CCC descriptor
@@ -1143,7 +1123,7 @@ class BluetoothPeripheral internal constructor(
                 Logger.e(TAG, "writeDescriptor failed for descriptor: %s", descriptor.uuid)
                 completedCommand()
             }
-        })
+        }
     }
 
     /**
@@ -1155,12 +1135,8 @@ class BluetoothPeripheral internal constructor(
      */
     fun readRemoteRssi(): Boolean {
         return enqueue {
-            if (isConnected) {
-                if (bluetoothGatt?.readRemoteRssi() == false) {
-                    Logger.e(TAG, "readRemoteRssi failed")
-                    completedCommand()
-                }
-            } else {
+            if (bluetoothGatt?.readRemoteRssi() == false) {
+                Logger.e(TAG, "readRemoteRssi failed")
                 completedCommand()
             }
         }
@@ -1177,22 +1153,18 @@ class BluetoothPeripheral internal constructor(
      *
      * [BluetoothPeripheralCallback.onMtuChanged] will be triggered as a result of this call.
      *
-     * @param mtu the desired MTU size
+     * @param mtu the desired MTU size (must be between 23 and 517)
      * @return true if the operation was enqueued, false otherwise
      */
     fun requestMtu(mtu: Int): Boolean {
         require(!(mtu < DEFAULT_MTU || mtu > MAX_MTU)) { "mtu must be between 23 and 517" }
 
         return enqueue {
-            if (isConnected) {
-                if (bluetoothGatt?.requestMtu(mtu) == true) {
-                    currentCommand = REQUEST_MTU_COMMAND
-                    Logger.i(TAG, "requesting MTU of %d", mtu)
-                } else {
-                    Logger.e(TAG, "requestMtu failed")
-                    completedCommand()
-                }
+            if (bluetoothGatt?.requestMtu(mtu) == true) {
+                currentCommand = REQUEST_MTU_COMMAND
+                Logger.i(TAG, "requesting MTU of %d", mtu)
             } else {
+                Logger.e(TAG, "requestMtu failed")
                 completedCommand()
             }
         }
@@ -1206,12 +1178,10 @@ class BluetoothPeripheral internal constructor(
      */
     fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
         return enqueue {
-            if (isConnected) {
-                if (bluetoothGatt?.requestConnectionPriority(priority.value) == true) {
-                    Logger.d(TAG, "requesting connection priority %s", priority)
-                } else {
-                    Logger.e(TAG, "could not request connection priority")
-                }
+            if (bluetoothGatt?.requestConnectionPriority(priority.value) == true) {
+                Logger.d(TAG, "requesting connection priority %s", priority)
+            } else {
+                Logger.e(TAG, "could not request connection priority")
             }
 
             // Complete command as there is no reliable callback for this, but allow some time
@@ -1234,19 +1204,15 @@ class BluetoothPeripheral internal constructor(
      */
     fun setPreferredPhy(txPhy: PhyType, rxPhy: PhyType, phyOptions: PhyOptions): Boolean {
         return enqueue {
-            if (isConnected) {
-                currentCommand = SET_PHY_TYPE_COMMAND
-                Logger.i(TAG, "setting preferred Phy: tx = %s, rx = %s, options = %s", txPhy, rxPhy, phyOptions)
-                bluetoothGatt?.setPreferredPhy(txPhy.mask, rxPhy.mask, phyOptions.value)
+            currentCommand = SET_PHY_TYPE_COMMAND
+            Logger.i(TAG, "setting preferred Phy: tx = %s, rx = %s, options = %s", txPhy, rxPhy, phyOptions)
+            bluetoothGatt?.setPreferredPhy(txPhy.mask, rxPhy.mask, phyOptions.value)
 
-                if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
-                    // There is a bug in Android 13 where onPhyUpdate is not always called
-                    // Therefore complete this command after a delay in order not to block the queue
-                    currentCommand = IDLE
-                    callbackHandler.postDelayed({ completedCommand() }, 200)
-                }
-            } else {
-                completedCommand()
+            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
+                // There is a bug in Android 13 where onPhyUpdate is not always called
+                // Therefore complete this command after a delay in order not to block the queue
+                currentCommand = IDLE
+                callbackHandler.postDelayed({ completedCommand() }, 200)
             }
         }
     }
@@ -1257,12 +1223,8 @@ class BluetoothPeripheral internal constructor(
      */
     fun readPhy(): Boolean {
         return enqueue {
-            if (isConnected) {
-                bluetoothGatt?.readPhy()
-                Logger.d(TAG, "reading Phy")
-            } else {
-                completedCommand()
-            }
+            bluetoothGatt?.readPhy()
+            Logger.d(TAG, "reading Phy")
         }
     }
 
@@ -1372,7 +1334,9 @@ class BluetoothPeripheral internal constructor(
 
             mainHandler.post {
                 try {
-                    bluetoothCommand.run()
+                    if (isConnected) {
+                        bluetoothCommand.run()
+                    }
                 } catch (ex: Exception) {
                     Logger.e(TAG, "command exception for device '%s'", name)
                     Logger.e(TAG, ex.toString())
