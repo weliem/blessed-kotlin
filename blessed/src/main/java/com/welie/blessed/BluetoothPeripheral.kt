@@ -78,6 +78,13 @@ class BluetoothPeripheral internal constructor(
     private var connectTimestamp: Long = 0
 
     /**
+     * Get the type of the peripheral.
+     *
+     * @return the PeripheralType
+     */
+    var type: PeripheralType = PeripheralType.fromValue(device.type)
+
+    /**
      * Returns the currently set MTU
      *
      * @return the MTU
@@ -308,6 +315,7 @@ class BluetoothPeripheral internal constructor(
     }
 
     private fun successfullyConnected() {
+        type = PeripheralType.fromValue(device.type)
         val timePassed = SystemClock.elapsedRealtime() - connectTimestamp
         Logger.i(TAG, "connected to '%s' (%s) in %.1fs", name, bondState, timePassed / 1000.0f)
 
@@ -702,13 +710,7 @@ class BluetoothPeripheral internal constructor(
     val address: String
         get() = device.address
 
-    /**
-     * Get the type of the peripheral.
-     *
-     * @return the PeripheralType
-     */
-    val type: PeripheralType
-        get() = PeripheralType.fromValue(device.type)
+
 
     /**
      * Get the name of the bluetooth peripheral.
