@@ -915,6 +915,7 @@ class BluetoothCentralManagerTests {
         val device = mockk<BluetoothDevice>()
         every { device.address } returns address
         every { device.name } returns name
+        every { device.type } returns BluetoothDevice.DEVICE_TYPE_LE
         return device
     }
 
