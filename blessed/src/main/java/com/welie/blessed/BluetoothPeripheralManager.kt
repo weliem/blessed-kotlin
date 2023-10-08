@@ -813,7 +813,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         get() {
             val targetSdkVersion = context.applicationInfo.targetSdkVersion
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && targetSdkVersion >= Build.VERSION_CODES.S) {
-                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
+                arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && targetSdkVersion >= Build.VERSION_CODES.Q) {
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
             } else arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION)

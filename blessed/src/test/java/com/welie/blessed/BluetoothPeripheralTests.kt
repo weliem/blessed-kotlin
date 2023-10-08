@@ -18,10 +18,12 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
 import java.util.*
 
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class BluetoothPeripheralTests {
 
     private lateinit var peripheral: BluetoothPeripheral
