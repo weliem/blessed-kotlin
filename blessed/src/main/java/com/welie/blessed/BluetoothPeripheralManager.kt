@@ -138,7 +138,6 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                 // Call onCharacteristic before any responses are sent, even if it is a long read
                 if (offset == 0) {
                     val response = callback.onCharacteristicRead(bluetoothCentral, characteristic)
-                    Objects.requireNonNull(response, "no valid ReadResponse returned")
                     status = response.status
                     currentReadValue = response.value
                 }
@@ -211,7 +210,6 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                 // Call onDescriptorRead before any responses are sent, even if it is a long read
                 if (offset == 0) {
                     val response = callback.onDescriptorRead(bluetoothCentral, descriptor)
-                    Objects.requireNonNull(response, "no valid ReadResponse returned")
                     status = response.status
                     currentReadValue = response.value
                 }
@@ -568,12 +566,10 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
      * @param bluetoothCentral the Central
      */
     fun cancelConnection(bluetoothCentral: BluetoothCentral) {
-        Objects.requireNonNull(bluetoothCentral, CENTRAL_IS_NULL)
         cancelConnection(bluetoothCentral.device)
     }
 
     private fun cancelConnection(bluetoothDevice: BluetoothDevice) {
-        Objects.requireNonNull(bluetoothDevice, DEVICE_IS_NULL)
         Logger.i(TAG, "cancelConnection with '%s' (%s)", bluetoothDevice.name ?: "null", bluetoothDevice.address)
         bluetoothGattServer.cancelConnection(bluetoothDevice)
     }
@@ -669,8 +665,6 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
             }
         }
     }
-
-
 
     private fun handleAdapterState(state: Int) {
         when (state) {
