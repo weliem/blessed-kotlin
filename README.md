@@ -9,5 +9,5 @@ There are also some new additions:
 * Refactored BluetoothBytesParse and new BluethoothBytesBuilder classes
 * New ByteArray extensions to make handling byte arrays easier
 * New convenience functions and extensions to make code more readable
-
+* Added a peripheral example to the repo that shows how to build your own peripherals
 
