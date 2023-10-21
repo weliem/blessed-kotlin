@@ -35,3 +35,41 @@ The `BluetoothBytesParser` class is a utility class that makes parsing byte arra
 
 The BLESSED library was inspired by CoreBluetooth on iOS and provides the same level of abstraction, but at the same time it also stays true to Android by keeping most methods the same and allowing you to work with the standard classes for Services, Characteristics and Descriptors. If you already have developed using CoreBluetooth you can very easily port your code to Android using this library.
 
+## Scanning
+
+The `BluetoothCentralManager` class has several differrent scanning methods:
+
+```kotlin
+fun scanForPeripherals() 
+fun scanForPeripheralsWithServices(serviceUUIDs: List<UUID>)
+fun scanForPeripheralsWithNames(peripheralNames: List<String>)
+fun scanForPeripheralsWithAddresses(peripheralAddresses: List<String>)
+fun scanForPeripheralsUsingFilters(filters: List<ScanFilter>) 
+```
+
+They all work in the same way and take an array of either service UUIDs, peripheral names or mac addresses. When a peripheral is found you will get a callback on `onDiscoveredPeripheral` with the `BluetoothPeripheral` object and a `ScanResult` object that contains the scan details. So in order to setup a scan for a device with the Bloodpressure service and connect to it, you do:
+
+```kotlin
+val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
+    override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
+        Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
+        centralManager.stopScan()
+        centralManager.connect(peripheral, bluetoothPeripheralCallback)
+    }
+}
+
+// Create BluetoothCentral and receive callbacks on the main thread
+val central = BluetoothCentralManager(getApplicationContext(), bluetoothCentralManagerCallback, new Handler(Looper.getMainLooper()));
+
+// Define blood pressure service UUID
+val BLP_SERVICE_UUID: UUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
+
+// Scan for peripherals with a certain service UUID
+central.scanForPeripheralsWithServices(listOf(BLOODPRESSURE_SERVICE_UUID));
+```
+
+**Note** Only 1 of these 4 types of scans can be active at one time! So call `stopScan()` before calling another scan.
+
+The method `scanForPeripheralsUsingFilters` is for scanning using your own list of filters. See Android documentation for more info on the use of ScanFilters.
+
+
