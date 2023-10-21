@@ -184,3 +184,91 @@ When notifications arrive, you will receive a callback on:
 ```kotlin
 fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) 
 ```
+
+## Bonding
+BLESSED handles bonding for you and will make sure all bonding variants work smoothly. During the process of bonding, you will be informed of the process via a number of callbacks:
+
+```kotlin
+fun onBondingStarted(peripheral: BluetoothPeripheral)
+fun onBondingSucceeded(peripheral: BluetoothPeripheral)
+fun onBondingFailed(peripheral: BluetoothPeripheral)
+fun onBondLost(peripheral: BluetoothPeripheral)
+```
+In most cases, the peripheral will initiate bonding either at the time of connection, or when trying to read/write protected characteristics. However, if you want you can also initiate bonding yourself by calling `createBond` on a peripheral. There are two ways to do this:
+* Calling `createBond` when not yet connected to a peripheral. In this case, a connection is made and bonding is requested.
+* Calling `createBond` when already connected to a peripheral. In this case, only the bond is created.
+
+It is also possible to remove a bond by calling `removeBond`. Note that this method uses a hidden Android API and may stop working in the future. When calling the `removeBond` method, the peripheral will also disappear from the settings menu on the phone.
+
+Lastly, it is also possible to automatically issue a PIN code when pairing. Use the method `setPinCodeForPeripheral` to register a 6 digit PIN code. Once bonding starts, BLESSED will automatically issue the PIN code and the UI dialog to enter the PIN code will not appear anymore.
+
+## Requesting a higher MTU to increase throughput
+The default MTU is 23 bytes, which allows you to send and receive byte arrays of MTU - 3 = 20 bytes at a time. The 3 bytes overhead are used by the ATT packet. If your peripheral supports a higher MTU, you can request that by calling:
+
+```kotlin
+fun requestMtu(mtu: Int)
+```
+
+You will get a callback on:
+
+```kotlin
+fun onMtuChanged(peripheral: BluetoothPeripheral, mtu: Int, status: GattStatus)
+```
+
+This callback will tell you what the negotiated MTU value is. Note that you may not get the value you requested if the peripheral doesn't accept your offer.
+If you simply want the highest possible MTU, you can call `peripheral.requestMtu(BluetoothPeripheral.MAX_MTU)` and that will lead to receiving the highest possible MTU your peripheral supports.
+
+Once the MTU has been set, you can always access it by calling `getCurrentMtu()`. If you want to know the maximum length of the byte arrays that you can write, you can call the method `getMaximumWriteValueLength()`. Note that the maximum value depends on the write type you want to use.
+
+## Long reads and writes
+The library also supports so called 'long reads/writes'. You don't need to do anything special for them. Just read a characteristic or descriptor as you normally do, and if the characteristic's value is longer than MTU - 1, then a series of reads will be done by the Android BLE stack. But you will simply receive the 'long' characteristic value in the same way as normal reads. 
+
+Similarly, for long writes, you just write to a characteristic or descriptor and the Android BLE stack will take care of the rest. But keep in mind that long writes only work with `WriteType.WITH_RESPONSE` and the maximum length of your byte array should be 512 or less. Note that not all peripherals support long reads/writes so this is not guaranteed to work always.
+
+## Status codes
+When connecting or disconnecting, the callback methods will contain a parameter `status: HciStatus`. This enum class will have the value `SUCCESS` if the operation succeeded and otherwise it will provide a value indicating what went wrong.
+
+Similarly, when doing GATT operations, the callbacks methods contain a parameter `status: GattStatus`. These two enum classes replace the `int status` parameter that Android normally passes.
+
+## Bluetooth 5 support
+As of Android 8, Bluetooth 5 is natively supported. One of the things that Bluetooth 5 brings, is new physical layer options, called **Phy** that either give more speed or longer range.
+The options you can choose are:
+* **LE_1M**,  1 mbit PHY, compatible with Bluetooth 4.0, 4.1, 4.2 and 5.0
+* **LE_2M**, 2 mbit PHY for higher speeds, requires Bluetooth 5.0
+* **LE_CODED**, Coded PHY for long range connections, requires Bluetooth 5.0
+
+You can set a preferred Phy by calling:
+```kotlin
+fun setPreferredPhy(txPhy: PhyType, rxPhy: PhyType, phyOptions: PhyOptions)
+```
+
+By calling `setPreferredPhy()` you indicate what you would like to have but it is not guaranteed that you get what you ask for. That depends on what the peripheral will actually support and give you.
+If you are requesting `LE_CODED` you can also provide PhyOptions which has 3 possible values:
+* **NO_PREFERRED**, for no preference (use this when asking for LE_1M or LE_2M)
+* **S2**, for 2x long range
+* **S8**, for 4x long range
+    
+The result of this negotiation will be received on:
+
+```kotlin
+fun onPhyUpdate(peripheral: BluetoothPeripheral, txPhy: PhyType, rxPhy: PhyType, status: GattStatus)
+```
+
+As you can see the Phy for sending and receiving can be different but most of the time you will see the same Phy for both.
+Note that `onPhyUpdate` will also be called by the Android stack when a connection is established or when the Phy changes for other reasons.
+If you don't call `setPreferredPhy()`, Android seems to pick `PHY_LE_2M` if the peripheral supports Bluetooth 5. So in practice you only need to call `setPreferredPhy` if you want to use `PHY_LE_CODED`.
+
+You can request the current values at any point by calling:
+```kotlin
+peripheral.readPhy()
+```
+
+The result will be again delivered on `onPhyUpdate()`
+
+## Logging
+
+Blessed uses Timber for logging. If you don't want Blessed to do any logging you can disable logging:
+
+```kotlin
+central.disableLogging()
+```
