@@ -69,7 +69,7 @@ fun scanForPeripheralsUsingFilters(filters: List<ScanFilter>)
 They all work in the same way and take an array of either service UUIDs, peripheral names or mac addresses. When a peripheral is found you will get a callback on `onDiscoveredPeripheral` with the `BluetoothPeripheral` object and a `ScanResult` object that contains the scan details. So in order to setup a scan for a device with the Bloodpressure service and connect to it, you do:
 
 ```kotlin
-val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
+val centralManagerCallback = object : BluetoothCentralManagerCallback() {
     override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
         Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
         centralManager.stopScan()
@@ -78,7 +78,7 @@ val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback()
 }
 
 // Create BluetoothCentral and receive callbacks on the main thread
-val central = BluetoothCentralManager(getApplicationContext(), bluetoothCentralManagerCallback, new Handler(Looper.getMainLooper()));
+val central = BluetoothCentralManager(getApplicationContext(), centralManagerCallback, new Handler(Looper.getMainLooper()));
 
 // Define blood pressure service UUID
 val BLP_SERVICE_UUID: UUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
