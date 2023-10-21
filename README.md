@@ -124,3 +124,63 @@ fun cancelConnection(peripheral: BluetoothPeripheral)
 ```
 In all cases, you will get a callback on `onDisconnectedPeripheral` when the disconnection has been completed.
 
+## Service discovery
+
+The BLESSED library will automatically do the service discovery for you and once it is completed you will receive the following callback:
+
+```kotlin
+fun onServicesDiscovered(peripheral: BluetoothPeripheral)
+```
+In order to get the services you can use methods like `getServices()` or `getService(UUID)`. In order to get hold of characteristics you can call `getCharacteristic(UUID)` on the BluetoothGattService object or call `getCharacteristic()` on the BluetoothPeripheral object.
+
+This callback is the proper place to start enabling notifications or read/write characteristics.
+
+## Reading and writing
+
+Reading and writing to characteristics is done using the following methods:
+
+```kotlin
+fun readCharacteristic(characteristic: BluetoothGattCharacteristic)
+fun readCharacteristic(serviceUUID: UUID, characteristicUUID: UUID)
+fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: WriteType)
+fun writeCharacteristic(serviceUUID: UUID, characteristicUUID: UUID, value: ByteArray, writeType: WriteType)
+```
+
+Both methods are asynchronous and will be queued up. So you can just issue as many read/write operations as you like without waiting for each of them to complete. You will receive a callback once the result of the operation is available.
+For read operations you will get a callback on:
+
+```kotlin
+fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus)
+```
+
+If you want to write to a characteristic, you need to provide a `value` and a `writeType`. The `writeType` is usually `WITH_RESPONSE` or `WITHOUT_RESPONSE`. If the write type you specify is not supported by the characteristic you will see an error in your log. For write operations you will get a callback on:
+```kotlin
+fun onCharacteristicWrite(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus)
+```
+
+## Turning notifications on/off
+
+BLESSED provides a convenience methods `startNotify` and `stopNotify` to turn notifications/indications on or off. It will perform all the necessary operations like writing to the Client Characteristic Configuration descriptor for you. So all you need to do is:
+
+```kotlin
+val currentTimeCharacteristic = peripheral.getCharacteristic(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)?.let {
+     peripheral.startNotify(it, true);
+}
+```
+
+Since this is an asynchronous operation you will receive a callback that indicates success or failure. You can use the method `isNotifying` to check if the characteristic is currently notifying or not:
+
+```kotlin
+fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
+    if (status == GattStatus.SUCCESS) {
+        Timber.i("SUCCESS: Notify set to '%s' for %s", peripheral.isNotifying(characteristic), characteristic.uuid)
+    } else {
+        Timber.e("ERROR: Changing notification state failed for %s (%s)", characteristic.uuid, status)
+    }
+}
+```
+When notifications arrive, you will receive a callback on:
+
+```kotlin
+fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) 
+```
