@@ -107,7 +107,7 @@ object BluetoothHandler {
         }
 
         override fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
-            if (status === GattStatus.SUCCESS) {
+            if (status == GattStatus.SUCCESS) {
                 val isNotifying = peripheral.isNotifying(characteristic)
                 Timber.i("SUCCESS: Notify set to '%s' for %s", isNotifying, characteristic.uuid)
                 if (characteristic.uuid == CONTOUR_CLOCK) {

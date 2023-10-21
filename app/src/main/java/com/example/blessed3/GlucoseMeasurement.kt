@@ -41,7 +41,7 @@ data class GlucoseMeasurement(
                     timestamp = Date(timestamp.time + timeOffset * 60000)
                 }
 
-                val multiplier = if (unit === MiligramPerDeciliter) 100000 else 1000
+                val multiplier = if (unit == MiligramPerDeciliter) 100000 else 1000
                 val glucoseValue = if (typeAndLocationPresent) parser.getSFloat() * multiplier else null
 
                 return GlucoseMeasurement(
