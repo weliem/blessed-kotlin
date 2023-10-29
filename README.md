@@ -164,8 +164,14 @@ BLESSED provides a convenience methods `startNotify` and `stopNotify` to turn no
 
 ```kotlin
 val currentTimeCharacteristic = peripheral.getCharacteristic(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)?.let {
-     peripheral.startNotify(it, true);
+     peripheral.startNotify(it)
 }
+```
+
+Or alternatively, use
+
+```kotlin
+peripheral.startNotify(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)
 ```
 
 Since this is an asynchronous operation you will receive a callback that indicates success or failure. You can use the method `isNotifying` to check if the characteristic is currently notifying or not:
