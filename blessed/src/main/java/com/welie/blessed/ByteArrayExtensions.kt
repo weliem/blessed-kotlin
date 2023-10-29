@@ -376,3 +376,15 @@ fun mergeArrays(vararg arrays: ByteArray): ByteArray {
     }
     return merged
 }
+
+/**
+ * Create a UUID for a short 16 bit string
+ *
+ * @param value the characteristic's short UUID
+ * @return a full UUID based on value
+ * @throws IllegalArgumentException if the string is not 4 characters or not a 16 bit string
+ */
+fun from16BitString(value: String) : UUID {
+    require(value.count() == 4) { "a 16 bit UUID value should be exactly 4 characters long" }
+    return UUID.fromString("0000${value.lowercase()}-0000-1000-8000-00805f9b34fb")
+}

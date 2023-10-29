@@ -375,6 +375,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
             super.onPhyRead(device, txPhy, rxPhy, status)
         }
     }
+
     internal val advertiseCallback: AdvertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             Logger.i(TAG, "advertising started")

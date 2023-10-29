@@ -39,8 +39,8 @@ object BluetoothHandler {
     private val BLP_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A35-0000-1000-8000-00805f9b34fb")
 
     // UUIDs for the Health Thermometer service (HTS)
-    private val HTS_SERVICE_UUID = UUID.fromString("00001809-0000-1000-8000-00805f9b34fb")
-    private val HTS_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A1C-0000-1000-8000-00805f9b34fb")
+    private val HTS_SERVICE_UUID = from16BitString("1809")
+    private val HTS_MEASUREMENT_CHARACTERISTIC_UUID = from16BitString("2A1C")
 
     // UUIDs for the Heart Rate service (HRS)
     private val HRS_SERVICE_UUID: UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb")
@@ -282,3 +282,4 @@ fun BluetoothPeripheral.needsBonding(): Boolean {
     return name.startsWith("Contour") ||
             name.startsWith("A&D")
 }
+
