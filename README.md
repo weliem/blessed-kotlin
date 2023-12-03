@@ -60,9 +60,9 @@ The `BluetoothCentralManager` class has several differrent scanning methods:
 
 ```kotlin
 fun scanForPeripherals() 
-fun scanForPeripheralsWithServices(serviceUUIDs: List<UUID>)
-fun scanForPeripheralsWithNames(peripheralNames: List<String>)
-fun scanForPeripheralsWithAddresses(peripheralAddresses: List<String>)
+fun scanForPeripheralsWithServices(serviceUUIDs: Set<UUID>)
+fun scanForPeripheralsWithNames(peripheralNames: Set<String>)
+fun scanForPeripheralsWithAddresses(peripheralAddresses: Set<String>)
 fun scanForPeripheralsUsingFilters(filters: List<ScanFilter>) 
 ```
 

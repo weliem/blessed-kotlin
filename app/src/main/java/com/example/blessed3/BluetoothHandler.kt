@@ -256,7 +256,7 @@ object BluetoothHandler {
     fun startScanning() {
         if(centralManager.isNotScanning) {
             centralManager.scanForPeripheralsWithServices(
-                listOf(
+                setOf(
                     BLP_SERVICE_UUID,
                     GLUCOSE_SERVICE_UUID,
                     HRS_SERVICE_UUID,
