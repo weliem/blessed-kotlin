@@ -34,6 +34,7 @@ import android.os.Looper
 import android.os.SystemClock
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.math.min
 
 /**
  * Represents a remote Bluetooth peripheral and replaces BluetoothDevice and BluetoothGatt
@@ -784,7 +785,7 @@ class BluetoothPeripheral internal constructor(
         return when (writeType) {
             WriteType.WITH_RESPONSE -> 512
             WriteType.SIGNED -> currentMtu - 15
-            else -> currentMtu - 3
+            else -> min(currentMtu - 3, 512)
         }
     }
 
