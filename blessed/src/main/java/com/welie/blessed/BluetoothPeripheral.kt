@@ -904,7 +904,7 @@ class BluetoothPeripheral internal constructor(
         require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
         require(value.size <= getMaximumWriteValueLength(writeType)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
 
-        if (doesNotSupportWriteType(characteristic, writeType)) {
+        if (characteristic.doesNotSupportWriteType(writeType)) {
             val message = "characteristic <${characteristic.uuid} does not support writeType '$writeType'"
             throw IllegalArgumentException(message)
         }
@@ -936,10 +936,6 @@ class BluetoothPeripheral internal constructor(
         return value.size > currentMtu - 3 && writeType == WriteType.WITH_RESPONSE
     }
 
-    private fun doesNotSupportWriteType(characteristic: BluetoothGattCharacteristic, writeType: WriteType): Boolean {
-        return characteristic.properties and writeType.property == 0
-    }
-
     private fun internalWriteCharacteristic(
         characteristic: BluetoothGattCharacteristic,
         value: ByteArray,
@@ -954,7 +950,7 @@ class BluetoothPeripheral internal constructor(
         } else {
             characteristic.writeType = writeType.writeType
             characteristic.value = value
-            bluetoothGatt!!.writeCharacteristic(characteristic)
+            bluetoothGatt?.writeCharacteristic(characteristic) ?: false
         }
     }
 
@@ -1044,7 +1040,7 @@ class BluetoothPeripheral internal constructor(
             result == BluetoothStatusCodes.SUCCESS
         } else {
             descriptor.value = value
-            bluetoothGatt!!.writeDescriptor(descriptor)
+            bluetoothGatt?.writeDescriptor(descriptor) ?: false
         }
     }
 
@@ -1160,7 +1156,7 @@ class BluetoothPeripheral internal constructor(
      * @return true if the operation was enqueued, false otherwise
      */
     fun requestMtu(mtu: Int): Boolean {
-        require(!(mtu < DEFAULT_MTU || mtu > MAX_MTU)) { "mtu must be between 23 and 517" }
+        require(!(mtu < DEFAULT_MTU || mtu > MAX_MTU)) { "mtu must be between $DEFAULT_MTU and $MAX_MTU" }
 
         return enqueue {
             if (bluetoothGatt?.requestMtu(mtu) == true) {

@@ -26,3 +26,7 @@ fun BluetoothGattCharacteristic.supportsWriteType(writeType: WriteType): Boolean
     }
     return properties and writeProperty > 0
 }
+
+fun BluetoothGattCharacteristic.doesNotSupportWriteType(writeType: WriteType) : Boolean {
+    return !supportsWriteType(writeType)
+}
