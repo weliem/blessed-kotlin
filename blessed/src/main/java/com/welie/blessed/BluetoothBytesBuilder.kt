@@ -81,8 +81,8 @@ open class BluetoothBytesBuilder(size: UInt = 0u, private val byteOrder: ByteOrd
     }
 
     fun addInt24(value: Int): BluetoothBytesBuilder {
-        require(value >= INT24_MIN_VALUE.toInt()) { "value cannot be larger than $INT24_MIN_VALUE" }
-        require(value <= INT24_MAX_VALUE.toInt()) { "value cannot be larger than $INT24_MAX_VALUE" }
+        require(value >= INT24_MIN_VALUE) { "value cannot be larger than $INT24_MIN_VALUE" }
+        require(value <= INT24_MAX_VALUE) { "value cannot be larger than $INT24_MAX_VALUE" }
         return add(value.asByteArrayOfInt24(byteOrder))
     }
 
