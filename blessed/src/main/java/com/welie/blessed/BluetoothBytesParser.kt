@@ -24,9 +24,7 @@ package com.welie.blessed
 
 import java.nio.ByteOrder
 import java.nio.ByteOrder.LITTLE_ENDIAN
-import java.nio.charset.StandardCharsets
-import java.util.*
-import kotlin.math.pow
+import java.util.Date
 
 open class BluetoothBytesParser (
     private val value: ByteArray,
