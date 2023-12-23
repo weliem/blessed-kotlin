@@ -56,7 +56,12 @@ enum class ScanFailure(val value: Int) {
     /**
      * Failed to start scan as application tries to scan too frequently.
      */
-    SCANNING_TOO_FREQUENTLY(6), UNKNOWN(-1);
+    SCANNING_TOO_FREQUENTLY(6),
+
+    /**
+     * Unknown scan failure
+     */
+    UNKNOWN(-1);
 
     companion object {
         fun fromValue(value: Int): ScanFailure {
