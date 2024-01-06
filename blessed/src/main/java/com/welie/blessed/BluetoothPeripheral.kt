@@ -1094,15 +1094,13 @@ class BluetoothPeripheral internal constructor(
         }
 
         // Check if characteristic has NOTIFY or INDICATE properties and set the correct byte value to be written
-        val value: ByteArray
-        val properties = characteristic.properties
-        value = if (properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY > 0) {
-            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-        } else if (properties and BluetoothGattCharacteristic.PROPERTY_INDICATE > 0) {
-            BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
-        } else {
-            val message = String.format("characteristic %s does not have notify or indicate property", characteristic.uuid)
-            throw IllegalArgumentException(message)
+        val value = when {
+            characteristic.supportsNotify() -> { BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE }
+            characteristic.supportsIndicate() -> { BluetoothGattDescriptor.ENABLE_INDICATION_VALUE }
+            else -> {
+                val message = String.format("characteristic %s does not have notify or indicate property", characteristic.uuid)
+                throw IllegalArgumentException(message)
+            }
         }
         val finalValue = if (enable) value else BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
 

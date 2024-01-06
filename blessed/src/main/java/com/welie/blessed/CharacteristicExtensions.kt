@@ -14,8 +14,16 @@ fun BluetoothGattCharacteristic.supportsWritingWithoutResponse(): Boolean {
     return properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE > 0
 }
 
-fun BluetoothGattCharacteristic.supportsNotifying(): Boolean {
-    return properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY > 0 || properties and BluetoothGattCharacteristic.PROPERTY_INDICATE > 0
+fun BluetoothGattCharacteristic.supportsNotifyOrIndicate(): Boolean {
+    return supportsNotify() || supportsIndicate()
+}
+
+fun BluetoothGattCharacteristic.supportsNotify(): Boolean {
+    return properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY > 0
+}
+
+fun BluetoothGattCharacteristic.supportsIndicate(): Boolean {
+    return properties and BluetoothGattCharacteristic.PROPERTY_INDICATE > 0
 }
 
 fun BluetoothGattCharacteristic.supportsWriteType(writeType: WriteType): Boolean {
