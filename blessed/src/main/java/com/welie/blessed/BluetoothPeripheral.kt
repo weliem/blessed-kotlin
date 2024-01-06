@@ -31,6 +31,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Parcel
 import android.os.SystemClock
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -84,6 +85,8 @@ class BluetoothPeripheral internal constructor(
      * @return the PeripheralType
      */
     var type: PeripheralType = PeripheralType.fromValue(device.type)
+
+    var addressType: AddressType = device.addressType()
 
     /**
      * Returns the currently set MTU
@@ -521,6 +524,37 @@ class BluetoothPeripheral internal constructor(
 
     fun setDevice(bluetoothDevice: BluetoothDevice) {
         device = bluetoothDevice
+    }
+
+    // Based on https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/bluetooth/bluetooth/src/main/java/androidx/bluetooth/utils/FwkBluetoothDevice.kt
+    private fun BluetoothDevice.addressType() : AddressType {
+        // AddressType can only be retrieved on SDK 34 or higher
+        if (Build.VERSION.SDK_INT < 33) {
+            return AddressType.UNKNOWN
+        }
+
+        val parcel = Parcel.obtain()
+        writeToParcel(parcel, 0)
+        parcel.setDataPosition(0)
+        parcel.readString() // Skip address
+        val mAddressType = parcel.readInt()
+        parcel.recycle()
+
+        return when (mAddressType) {
+            BluetoothDevice.ADDRESS_TYPE_PUBLIC -> AddressType.PUBLIC
+            BluetoothDevice.ADDRESS_TYPE_RANDOM ->
+                when (address.substring(0, 1).toInt(16).shr(2)) {
+                    ADDRESS_TYPE_RANDOM_STATIC_BITS_VALUE ->
+                        AddressType.RANDOM_STATIC
+                    ADDRESS_TYPE_RANDOM_RESOLVABLE_BITS_VALUE ->
+                        AddressType.RANDOM_RESOLVABLE
+                    ADDRESS_TYPE_RANDOM_NON_RESOLVABLE_BITS_VALUE ->
+                        AddressType.RANDOM_NON_RESOLVABLE
+                    else -> AddressType.UNKNOWN
+                }
+            BluetoothDevice.ADDRESS_TYPE_UNKNOWN -> AddressType.UNKNOWN
+            else -> AddressType.UNKNOWN
+        }
     }
 
     /**
@@ -1505,5 +1539,12 @@ class BluetoothPeripheral internal constructor(
         private const val PAIRING_VARIANT_DISPLAY_PASSKEY = 4
         private const val PAIRING_VARIANT_DISPLAY_PIN = 5
         private const val PAIRING_VARIANT_OOB_CONSENT = 6
+
+        /** Address type random static bits value */
+        private const val ADDRESS_TYPE_RANDOM_STATIC_BITS_VALUE: Int = 3
+        /** Address type random resolvable bits value */
+        private const val ADDRESS_TYPE_RANDOM_RESOLVABLE_BITS_VALUE: Int = 1
+        /** Address type random non resolvable bits value */
+        private const val ADDRESS_TYPE_RANDOM_NON_RESOLVABLE_BITS_VALUE: Int = 0
     }
 }
