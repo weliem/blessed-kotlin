@@ -918,6 +918,7 @@ class BluetoothCentralManagerTests {
         every { device.address } returns address
         every { device.name } returns name
         every { device.type } returns BluetoothDevice.DEVICE_TYPE_LE
+        every { device.writeToParcel(any(), any()) } returns Unit
         return device
     }
 
