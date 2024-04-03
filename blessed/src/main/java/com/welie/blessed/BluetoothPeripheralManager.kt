@@ -84,7 +84,7 @@ class BluetoothPeripheralManager(
                     // First check if this is a connecting peripheral because Android
                     // will also call this callback for connecting peripherals
                     if (peripheralQualifier?.isDeviceAPeripheral(device) == true) {
-                        Logger.v(TAG, "Device ${device.name} is a peripheral, ignoring STATE_CONNECTED event")
+                        Logger.v(TAG, "Device ${device.name} / ${device.address} is a peripheral, ignoring STATE_CONNECTED event")
                         return
                     }
 
