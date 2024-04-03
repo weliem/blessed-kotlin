@@ -47,14 +47,18 @@ import java.util.concurrent.ConcurrentLinkedQueue
  */
 @SuppressLint("MissingPermission")
 @Suppress("unused", "deprecation")
-class BluetoothPeripheralManager(private val context: Context, private val bluetoothManager: BluetoothManager, private val callback: BluetoothPeripheralManagerCallback) {
+class BluetoothPeripheralManager(
+    private val context: Context,
+    private val bluetoothManager: BluetoothManager,
+    private val callback: BluetoothPeripheralManagerCallback,
+    private var peripheralQualifier: PeripheralQualifier? = null,
+) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val bluetoothAdapter: BluetoothAdapter = bluetoothManager.adapter
     private val bluetoothLeAdvertiser: BluetoothLeAdvertiser = bluetoothAdapter.bluetoothLeAdvertiser
     var isAdvertising: Boolean = false
         private set
 
-    private var centralManager: BluetoothCentralManager? = null
     private val commandQueue: Queue<Runnable> = ConcurrentLinkedQueue()
     private val writeLongCharacteristicTemporaryBytes = HashMap<BluetoothGattCharacteristic, ByteArray>()
     private val writeLongDescriptorTemporaryBytes = HashMap<BluetoothGattDescriptor, ByteArray>()
@@ -69,7 +73,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
     private var commandQueueBusy = false
 
     internal var queuedCommands: Int = 0
-        get() =  commandQueue.size
+        get() = commandQueue.size
         private set
 
     val bluetoothGattServerCallback: BluetoothGattServerCallback = object : BluetoothGattServerCallback() {
@@ -79,10 +83,9 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
 
                     // First check if this is a connecting peripheral because Android
                     // will also call this callback for connecting peripherals
-                    centralManager?.let {
-                        if (it.unconnectedPeripherals.containsKey(device.address)) {
-                            return
-                        }
+                    if (peripheralQualifier?.isDeviceAPeripheral(device) == true) {
+                        Logger.v(TAG, "Device ${device.name} / ${device.address} is a peripheral, ignoring STATE_CONNECTED event")
+                        return
                     }
 
                     // Call connect() even though we are already connected
@@ -396,8 +399,8 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         mainHandler.post { callback.onAdvertisingStopped() }
     }
 
-    fun setCentralManager(central: BluetoothCentralManager) {
-        centralManager = Objects.requireNonNull(central)
+    fun setPeripheralQualifier(qualifier: PeripheralQualifier) {
+        peripheralQualifier = qualifier
     }
 
     /**
@@ -804,7 +807,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         return missingPermissions.toTypedArray()
     }
 
-     val requiredPermissions: Array<String>
+    val requiredPermissions: Array<String>
         get() {
             val targetSdkVersion = context.applicationInfo.targetSdkVersion
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && targetSdkVersion >= Build.VERSION_CODES.S) {
