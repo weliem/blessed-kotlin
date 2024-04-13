@@ -21,7 +21,7 @@ internal class HeartRateService(peripheralManager: BluetoothPeripheralManager) :
 
     private val measurement = BluetoothGattCharacteristic(
         HEARTRATE_MEASUREMENT_CHARACTERISTIC_UUID,
-        BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_INDICATE,
+        BluetoothGattCharacteristic.PROPERTY_NOTIFY,
         BluetoothGattCharacteristic.PERMISSION_READ
     )
     private val handler = Handler(Looper.getMainLooper())
