@@ -22,7 +22,7 @@ internal class HeartRateService(peripheralManager: BluetoothPeripheralManager) :
     private val measurement = BluetoothGattCharacteristic(
         HEARTRATE_MEASUREMENT_CHARACTERISTIC_UUID,
         BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-        BluetoothGattCharacteristic.PERMISSION_READ
+        0
     )
     private val handler = Handler(Looper.getMainLooper())
     private val notifyRunnable = Runnable { notifyHeartRate() }
@@ -37,12 +37,6 @@ internal class HeartRateService(peripheralManager: BluetoothPeripheralManager) :
         if (noCentralsConnected()) {
             stopNotifying()
         }
-    }
-
-    override fun onCharacteristicRead(central: BluetoothCentral, characteristic: BluetoothGattCharacteristic): ReadResponse {
-        return if (characteristic.uuid == HEARTRATE_MEASUREMENT_CHARACTERISTIC_UUID) {
-            ReadResponse(GattStatus.SUCCESS, byteArrayOf(0x00, 0x40))
-        } else super.onCharacteristicRead(central, characteristic)
     }
 
     override fun onNotifyingEnabled(central: BluetoothCentral, characteristic: BluetoothGattCharacteristic) {
