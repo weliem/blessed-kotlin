@@ -673,7 +673,10 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                 Logger.d(TAG, "bluetooth turned off")
                 cancelAllConnectionsWhenBluetoothOff()
             }
-            BluetoothAdapter.STATE_TURNING_OFF -> Logger.d(TAG, "bluetooth turning off")
+            BluetoothAdapter.STATE_TURNING_OFF -> {
+                Logger.d(TAG, "bluetooth turning off")
+                bluetoothLeAdvertiser.stopAdvertising(advertiseCallback)
+            }
             BluetoothAdapter.STATE_ON -> Logger.d(TAG, "bluetooth turned on")
             BluetoothAdapter.STATE_TURNING_ON -> Logger.d(TAG, "bluetooth turning on")
         }
