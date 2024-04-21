@@ -663,6 +663,7 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
             if (action == BluetoothAdapter.ACTION_STATE_CHANGED) {
                 val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                 handleAdapterState(state)
+                mainHandler.post { callback.onBluetoothAdapterStateChanged(state) }
             }
         }
     }
@@ -673,7 +674,17 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
                 Logger.d(TAG, "bluetooth turned off")
                 cancelAllConnectionsWhenBluetoothOff()
             }
-            BluetoothAdapter.STATE_TURNING_OFF -> Logger.d(TAG, "bluetooth turning off")
+            BluetoothAdapter.STATE_TURNING_OFF -> {
+                Logger.d(TAG, "bluetooth turning off")
+
+                if (isAdvertising) {
+                    stopAdvertising()
+                }
+
+                if (connectedCentrals.isNotEmpty()) {
+                    connectedCentrals.forEach { central -> cancelConnection(central) }
+                }
+            }
             BluetoothAdapter.STATE_ON -> Logger.d(TAG, "bluetooth turned on")
             BluetoothAdapter.STATE_TURNING_ON -> Logger.d(TAG, "bluetooth turning on")
         }
@@ -683,7 +694,6 @@ class BluetoothPeripheralManager(private val context: Context, private val bluet
         for (bluetoothCentral in connectedCentrals) {
             bluetoothGattServerCallback.onConnectionStateChange(bluetoothAdapter.getRemoteDevice(bluetoothCentral.address), 0, BluetoothProfile.STATE_DISCONNECTED)
         }
-        onAdvertisingStopped()
     }
 
     /**

@@ -194,4 +194,11 @@ abstract class BluetoothPeripheralManagerCallback {
      * Advertising has stopped
      */
     open fun onAdvertisingStopped() {}
+
+    /**
+     * Bluetooth adapter status changed
+     *
+     * @param state the current status code for the adapter
+     */
+    open fun onBluetoothAdapterStateChanged(state: Int) {}
 }

@@ -1,6 +1,7 @@
 package com.welie.btserver
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattService
@@ -86,6 +87,11 @@ class BluetoothServer(private val context: Context) {
         override fun onAdvertisingStarted(settingsInEffect: AdvertiseSettings) {}
         override fun onAdvertiseFailure(advertiseError: AdvertiseError) {}
         override fun onAdvertisingStopped() {}
+        override fun onBluetoothAdapterStateChanged(state: Int) {
+            if (state == BluetoothAdapter.STATE_ON) {
+                startAdvertising()
+            }
+        }
     }
 
     fun startAdvertising() {
