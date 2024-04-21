@@ -9,7 +9,6 @@ import android.bluetooth.BluetoothGattCharacteristic.PROPERTY_WRITE
 import android.bluetooth.BluetoothGattService
 import android.os.Handler
 import android.os.Looper
-import com.welie.blessed.BluetoothBytesBuilder
 import com.welie.blessed.BluetoothBytesParser
 import com.welie.blessed.BluetoothCentral
 import com.welie.blessed.BluetoothPeripheralManager
