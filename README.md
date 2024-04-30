@@ -37,7 +37,7 @@ The BLESSED library was inspired by CoreBluetooth on iOS and provides the same l
 
 ## Installation
 
-This library is available on Jitpack. This library also uses Timber for logging. So include the following in your gradle file:
+This library is available on Jitpack. This library also uses Timber for logging. So include the following in your gradle configuration:
 
 ```groovy
 allprojects {
@@ -53,6 +53,32 @@ dependencies {
 }
 ```
 where `$version` is the latest published version in Jitpack [![](https://jitpack.io/v/weliem/blessed-kotlin.svg)](https://jitpack.io/#weliem/blessed-kotlin)
+
+<details>
+
+<summary>Kotlin DSL</summary>
+
+settings.gradle.kts
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        ...
+        maven { setUrl("https://jitpack.io") }
+    }
+}
+```
+
+build.gradle.kts
+
+```kotlin
+dependencies {
+    implementation("com.github.weliem:blessed-kotlin:$version")
+    implementation("com.jakewharton.timber:timber:5.0.1")
+}
+```
+
+</details>
 
 ## Scanning
 
