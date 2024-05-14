@@ -50,7 +50,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 class BluetoothPeripheralManager(private val context: Context, private val bluetoothManager: BluetoothManager, private val callback: BluetoothPeripheralManagerCallback) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val bluetoothAdapter: BluetoothAdapter = bluetoothManager.adapter
-    private val bluetoothLeAdvertiser: BluetoothLeAdvertiser = bluetoothAdapter.bluetoothLeAdvertiser
+    private val bluetoothLeAdvertiser: BluetoothLeAdvertiser by lazy { bluetoothAdapter.bluetoothLeAdvertiser }
     var isAdvertising: Boolean = false
         private set
 
