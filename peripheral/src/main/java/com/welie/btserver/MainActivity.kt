@@ -27,16 +27,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startAdvertising() {
-        if (!isBluetoothEnabled) {
-            enableBleRequest.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
-            return
-        }
-
         val bluetoothServer = BluetoothServer.getInstance(applicationContext)
         val peripheralManager = bluetoothServer.peripheralManager
 
         if (!peripheralManager.permissionsGranted()) {
             requestPermissions()
+            return
+        }
+
+        if (!isBluetoothEnabled) {
+            enableBleRequest.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
             return
         }
 
