@@ -568,16 +568,17 @@ class BluetoothPeripheral internal constructor(
                 registerBondingBroadcastReceivers()
                 discoveryStarted = false
                 connectTimestamp = SystemClock.elapsedRealtime()
+                startConnectionTimer(this@BluetoothPeripheral)
                 bluetoothGatt = try {
                     device.connectGatt(context, false, bluetoothGattCallback, BluetoothDevice.TRANSPORT_LE)
                 } catch (e: SecurityException) {
                     Logger.d(TAG, "exception when calling connectGatt")
+                    cancelConnectionTimer()
                     null
                 }
 
                 bluetoothGatt?.let {
                     bluetoothGattCallback.onConnectionStateChange(bluetoothGatt, HciStatus.SUCCESS.value, BluetoothProfile.STATE_CONNECTING)
-                    startConnectionTimer(this@BluetoothPeripheral)
                 }
             }, DIRECT_CONNECTION_DELAY_IN_MS.toLong())
         } else {
