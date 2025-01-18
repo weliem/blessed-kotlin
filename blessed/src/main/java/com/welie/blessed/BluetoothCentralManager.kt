@@ -73,7 +73,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     private var currentCallback: ScanCallback? = null
     private var currentFilters: List<ScanFilter>? = null
     private var scanSettings: ScanSettings
-    private val autoConnectScanSettings: ScanSettings
+    private var autoConnectScanSettings: ScanSettings
     private val connectionRetries: MutableMap<String, Int> = ConcurrentHashMap()
     internal val pinCodes: MutableMap<String, String> = ConcurrentHashMap()
     private var transport = DEFAULT_TRANSPORT
@@ -258,6 +258,24 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      */
     fun setScanMode(scanMode: ScanMode) {
         scanSettings = getScanSettings(scanMode)
+    }
+
+    /**
+     * Set the default ScanSettings
+     *
+     * @param scanSettings the ScanSettings to set
+     */
+    fun setScanSettings(scanSettings: ScanSettings) {
+        this.scanSettings = scanSettings
+    }
+
+    /**
+     * Set autoconnect ScanSettings, used when scanning to autoconnect
+     *
+     * @param scanSettings the ScanSettings to set
+     */
+    fun setAutoConnectScanSettings(scanSettings: ScanSettings) {
+        this.autoConnectScanSettings = scanSettings
     }
 
     /**
