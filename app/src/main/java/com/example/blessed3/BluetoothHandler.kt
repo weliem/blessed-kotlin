@@ -233,8 +233,8 @@ object BluetoothHandler {
             Timber.i("disconnected '${peripheral.name}'")
             Toast.makeText(context, "Disconnected ${peripheral.name}", LENGTH_SHORT).show()
             handler.postDelayed(
-                { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
-                15000
+                { startScanning() },
+                2000
             )
         }
 
