@@ -240,6 +240,10 @@ object BluetoothHandler {
 
         override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.e("failed to connect to '${peripheral.name}'")
+            handler.postDelayed(
+                { startScanning() },
+                2000
+            )
         }
 
         override fun onBluetoothAdapterStateChanged(state: Int) {
