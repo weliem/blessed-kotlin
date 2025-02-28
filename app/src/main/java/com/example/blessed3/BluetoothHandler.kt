@@ -75,6 +75,9 @@ object BluetoothHandler {
     val CONTOUR_SERVICE_UUID: UUID = UUID.fromString("00000000-0002-11E2-9E96-0800200C9A66")
     private val CONTOUR_CLOCK = UUID.fromString("00001026-0002-11E2-9E96-0800200C9A66")
 
+    // For Logging
+    private val TAG = BluetoothHandler::class.java.simpleName
+
     private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
             peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
@@ -121,59 +124,66 @@ object BluetoothHandler {
         }
 
         override fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
-            when (characteristic.uuid) {
-                MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
-                    Timber.i("Manufacturer: ${value.getString()}")
-                }
 
-                MODEL_NUMBER_CHARACTERISTIC_UUID -> {
-                    Timber.i("Model: ${value.getString()}")
-                }
+            if (status == GattStatus.SUCCESS) {
+                when (characteristic.uuid) {
+                    MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
+                        Timber.i("Manufacturer: ${value.getString()}")
+                    }
 
-                BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
-                    Timber.i("Battery: ${value.getUInt8()}")
-                }
+                    MODEL_NUMBER_CHARACTERISTIC_UUID -> {
+                        Timber.i("Model: ${value.getString()}")
+                    }
 
-                CURRENT_TIME_CHARACTERISTIC_UUID -> {
-                    val currentTime = BluetoothBytesParser(value).getDateTime()
-                    val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
-                    Timber.i("Current time: ${dateFormat.format(currentTime)}")
-                }
+                    BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
+                        Timber.i("Battery: ${value.getUInt8()}")
+                    }
 
-                HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = TemperatureMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
+                    CURRENT_TIME_CHARACTERISTIC_UUID -> {
+                        val currentTime = BluetoothBytesParser(value).getDateTime()
+                        val dateFormat: DateFormat =
+                            SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+                        Timber.i("Current time: ${dateFormat.format(currentTime)}")
+                    }
 
-                WSS_MEASUREMENT_CHAR_UUID -> {
-                    val measurement = WeightMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
+                    HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                        val measurement = TemperatureMeasurement.fromBytes(value) ?: return
+                        sendMeasurement(measurement.toString())
+                    }
 
-                PLX_SPOT_MEASUREMENT_CHAR_UUID -> {
-                    val measurement = PulseOximeterSpotMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
+                    WSS_MEASUREMENT_CHAR_UUID -> {
+                        val measurement = WeightMeasurement.fromBytes(value) ?: return
+                        sendMeasurement(measurement.toString())
+                    }
 
-                PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID -> {
-                    val measurement = PulseOximeterContinuousMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
+                    PLX_SPOT_MEASUREMENT_CHAR_UUID -> {
+                        val measurement = PulseOximeterSpotMeasurement.fromBytes(value) ?: return
+                        sendMeasurement(measurement.toString())
+                    }
 
-                BLP_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = BloodPressureMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
+                    PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID -> {
+                        val measurement =
+                            PulseOximeterContinuousMeasurement.fromBytes(value) ?: return
+                        sendMeasurement(measurement.toString())
+                    }
 
-                GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = GlucoseMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
+                    BLP_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                        val measurement = BloodPressureMeasurement.fromBytes(value) ?: return
+                        sendMeasurement(measurement.toString())
+                    }
 
-                HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = HeartRateMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
+                    GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                        val measurement = GlucoseMeasurement.fromBytes(value) ?: return
+                        sendMeasurement(measurement.toString())
+                    }
+
+                    HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                        val measurement = HeartRateMeasurement.fromBytes(value) ?: return
+                        sendMeasurement(measurement.toString())
+                    }
                 }
+            } else {
+                Timber.e(TAG, "onCharacteristicUpdate with GATT status not success for characteristic <%s>, status '%s'", characteristic.uuid, status)
             }
         }
 
@@ -265,8 +275,8 @@ object BluetoothHandler {
                     GLUCOSE_SERVICE_UUID,
                     HRS_SERVICE_UUID,
                     HTS_SERVICE_UUID,
-                    PLX_SERVICE_UUID,
-                    WSS_SERVICE_UUID
+                    PLX_SERVICE_UUID
+                    // WSS_SERVICE_UUID
                 )
             )
         }
