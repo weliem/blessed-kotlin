@@ -70,52 +70,43 @@ object BluetoothHandler {
     val GLUCOSE_SERVICE_UUID: UUID = UUID.fromString("00001808-0000-1000-8000-00805f9b34fb")
     val GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A18-0000-1000-8000-00805f9b34fb")
     val GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A52-0000-1000-8000-00805f9b34fb")
+    val GLUCOSE_MEASUREMENT_CONTEXT_UUID: UUID = UUID.fromString("00002A34-0000-1000-8000-00805f9b34fb")
 
     // Contour Glucose Service
     val CONTOUR_SERVICE_UUID: UUID = UUID.fromString("00000000-0002-11E2-9E96-0800200C9A66")
     private val CONTOUR_CLOCK = UUID.fromString("00001026-0002-11E2-9E96-0800200C9A66")
+
+    val CARESENS_SERVICE_UUID: UUID = UUID.fromString("C4DEA010-5A9D-11E9-8647-D663BD873D93")
+    val CARESENS_DATETIME_UUID: UUID = UUID.fromString("C4DEA3BC-5A9D-11E9-8647-D663BD873D93") // write + notify
 
     // For Logging
     private val TAG = BluetoothHandler::class.java.simpleName
 
     private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
-            peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
+            //peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
             peripheral.readCharacteristic(DIS_SERVICE_UUID, MANUFACTURER_NAME_CHARACTERISTIC_UUID)
             peripheral.readCharacteristic(DIS_SERVICE_UUID, MODEL_NUMBER_CHARACTERISTIC_UUID)
 
-            // Write Current Time if possible
-            peripheral.getCharacteristic(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)?.let {
-                peripheral.startNotify(it)
 
-                // If it has the write property we write the current time
-                if (it.supportsWritingWithResponse()) {
-                    // Write the current time unless it is an Omron device
-                    if (!peripheral.name.contains("BLEsmart_", true)) {
-                        val currentTime = currentTimeByteArrayOf(Calendar.getInstance())
-                        peripheral.writeCharacteristic(it, currentTime, WITH_RESPONSE)
-                    }
-                }
-            }
 
             peripheral.readCharacteristic(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID)
+
             peripheral.startNotify(BLP_SERVICE_UUID, BLP_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(HTS_SERVICE_UUID, HTS_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(HRS_SERVICE_UUID, HRS_MEASUREMENT_CHARACTERISTIC_UUID)
+
             peripheral.startNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(PLX_SERVICE_UUID, PLX_SPOT_MEASUREMENT_CHAR_UUID)
-            peripheral.startNotify(PLX_SERVICE_UUID, PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID)
-            peripheral.startNotify(WSS_SERVICE_UUID, WSS_MEASUREMENT_CHAR_UUID)
-            peripheral.startNotify(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK)
+            peripheral.startNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CONTEXT_UUID)
+            peripheral.startNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID)
+            //peripheral.startNotify(CARESENS_SERVICE_UUID, CARESENS_DATETIME_UUID)
         }
 
         override fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
             if (status == GattStatus.SUCCESS) {
                 val isNotifying = peripheral.isNotifying(characteristic)
                 Timber.i("SUCCESS: Notify set to '%s' for %s", isNotifying, characteristic.uuid)
-                if (characteristic.uuid == CONTOUR_CLOCK) {
-                    writeContourClock(peripheral)
-                } else if (characteristic.uuid == GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID) {
+
+                if (characteristic.uuid == GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID) {
+                    //writeDeviceTime(peripheral)
                     writeGetAllGlucoseMeasurements(peripheral)
                 }
             } else {
@@ -177,6 +168,13 @@ object BluetoothHandler {
                         sendMeasurement(measurement.toString())
                     }
 
+                    GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID -> {
+                        Timber.i("RACP: <${value.asHexString()}>")
+//                        if (value.contentEquals(byteArrayOf("06000101"))) {
+//                            deleteAllGlucoseMeasurements(peripheral)
+//                        }
+                    }
+
                     HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
                         val measurement = HeartRateMeasurement.fromBytes(value) ?: return
                         sendMeasurement(measurement.toString())
@@ -213,11 +211,27 @@ object BluetoothHandler {
             peripheral.writeCharacteristic(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK, bytes, WITH_RESPONSE)
         }
 
+        private fun getNumberOfMeasurements(peripheral: BluetoothPeripheral) {
+            val command = byteArrayOf(0x04.toByte(), 0x01.toByte())
+            peripheral.writeCharacteristic(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, command, WITH_RESPONSE)
+        }
+
+        private fun deleteAllGlucoseMeasurements(peripheral: BluetoothPeripheral) {
+            Timber.i("Deleting all records")
+            val command = byteArrayOf(0x02.toByte(), 0x01.toByte())
+            peripheral.writeCharacteristic(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, command, WITH_RESPONSE)
+        }
+
         private fun writeGetAllGlucoseMeasurements(peripheral: BluetoothPeripheral) {
             val opCodeReportStoredRecords: Byte = 1
             val operatorAllRecords: Byte = 1
             val command = byteArrayOf(opCodeReportStoredRecords, operatorAllRecords)
             peripheral.writeCharacteristic(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, command, WITH_RESPONSE)
+        }
+
+        private fun writeDeviceTime(device: BluetoothPeripheral) {
+            val command = byteArrayOf("C0030100") + dateTimeByteArray()
+            device.writeCharacteristic(CARESENS_SERVICE_UUID, CARESENS_DATETIME_UUID, command, WITH_RESPONSE)
         }
     }
 
