@@ -10,6 +10,7 @@ import android.os.HandlerThread
 import android.os.Process
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
+import com.starmax.bluetoothsdk.Notify
 import com.welie.blessed.BluetoothBytesBuilder
 import com.welie.blessed.BluetoothBytesParser
 import com.welie.blessed.BluetoothCentralManager
@@ -40,6 +41,13 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import com.starmax.bluetoothsdk.StarmaxBleClient
+import com.starmax.bluetoothsdk.StarmaxSend
+import com.welie.blessed.WriteType
+import com.welie.blessed.asHexString
+import com.welie.blessed.byteArrayOf
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.subjects.PublishSubject
 
 
 @SuppressLint("StaticFieldLeak")
@@ -58,87 +66,28 @@ object BluetoothHandler {
     val measurementFlow = measurementFlow_.asStateFlow()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // UUIDs for the Blood Pressure service (BLP)
-    private val BLP_SERVICE_UUID: UUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
-    private val BLP_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A35-0000-1000-8000-00805f9b34fb")
-
-    // UUIDs for the Health Thermometer service (HTS)
-    private val HTS_SERVICE_UUID = from16BitString("1809")
-    private val HTS_MEASUREMENT_CHARACTERISTIC_UUID = from16BitString("2A1C")
-
-    // UUIDs for the Heart Rate service (HRS)
-    private val HRS_SERVICE_UUID: UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb")
-    private val HRS_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A37-0000-1000-8000-00805f9b34fb")
-
-    // UUIDs for the Device Information service (DIS)
-    private val DIS_SERVICE_UUID: UUID = UUID.fromString("0000180A-0000-1000-8000-00805f9b34fb")
-    private val MANUFACTURER_NAME_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A29-0000-1000-8000-00805f9b34fb")
-    private val MODEL_NUMBER_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A24-0000-1000-8000-00805f9b34fb")
-
-    // UUIDs for the Current Time service (CTS)
-    private val CTS_SERVICE_UUID: UUID = UUID.fromString("00001805-0000-1000-8000-00805f9b34fb")
-    private val CURRENT_TIME_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A2B-0000-1000-8000-00805f9b34fb")
-
-    // UUIDs for the Battery Service (BAS)
-    private val BTS_SERVICE_UUID: UUID = UUID.fromString("0000180F-0000-1000-8000-00805f9b34fb")
-    private val BATTERY_LEVEL_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A19-0000-1000-8000-00805f9b34fb")
-
-    // UUIDs for the Pulse Oximeter Service (PLX)
-    val PLX_SERVICE_UUID: UUID = UUID.fromString("00001822-0000-1000-8000-00805f9b34fb")
-    private val PLX_SPOT_MEASUREMENT_CHAR_UUID: UUID = UUID.fromString("00002a5e-0000-1000-8000-00805f9b34fb")
-    private val PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID: UUID = UUID.fromString("00002a5f-0000-1000-8000-00805f9b34fb")
-
-    // UUIDs for the Weight Scale Service (WSS)
-    val WSS_SERVICE_UUID: UUID = UUID.fromString("0000181D-0000-1000-8000-00805f9b34fb")
-    private val WSS_MEASUREMENT_CHAR_UUID: UUID = UUID.fromString("00002A9D-0000-1000-8000-00805f9b34fb")
-    val GLUCOSE_SERVICE_UUID: UUID = UUID.fromString("00001808-0000-1000-8000-00805f9b34fb")
-    val GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A18-0000-1000-8000-00805f9b34fb")
-    val GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A52-0000-1000-8000-00805f9b34fb")
-
-    // Contour Glucose Service
-    val CONTOUR_SERVICE_UUID: UUID = UUID.fromString("00000000-0002-11E2-9E96-0800200C9A66")
-    private val CONTOUR_CLOCK = UUID.fromString("00001026-0002-11E2-9E96-0800200C9A66")
+    private val WriteServiceUUID:UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9d")
+    private val WriteCharacteristicUUID:UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9d") // Wite/WriteWithoutResponse
+    private val NotifyServiceUUID:UUID = UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9d")
+    private val NotifyCharacteristicUUID:UUID = UUID.fromString("6e400003-b5a3-f393-e0a9-e50e24dcca9d") // Notify
+    var disconnectSubject = PublishSubject.create<Int>()
+    private val sendDisposable = CompositeDisposable()
 
     private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
+            StarmaxBleClient.instance.setWrite { byteArray -> writeCommand(peripheral,byteArray) }
             peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
-            peripheral.readCharacteristic(DIS_SERVICE_UUID, MANUFACTURER_NAME_CHARACTERISTIC_UUID)
-            peripheral.readCharacteristic(DIS_SERVICE_UUID, MODEL_NUMBER_CHARACTERISTIC_UUID)
-
-            // Write Current Time if possible
-            peripheral.getCharacteristic(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)?.let {
-                peripheral.startNotify(it)
-
-                // If it has the write property we write the current time
-                if (it.supportsWritingWithResponse()) {
-                    // Write the current time unless it is an Omron device
-                    if (!peripheral.name.contains("BLEsmart_", true)) {
-                        val currentTime = currentTimeByteArrayOf(Calendar.getInstance())
-                        peripheral.writeCharacteristic(it, currentTime, WITH_RESPONSE)
-                    }
-                }
-            }
-
-            peripheral.readCharacteristic(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID)
-            peripheral.startNotify(BLP_SERVICE_UUID, BLP_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(HTS_SERVICE_UUID, HTS_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(HRS_SERVICE_UUID, HRS_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(PLX_SERVICE_UUID, PLX_SPOT_MEASUREMENT_CHAR_UUID)
-            peripheral.startNotify(PLX_SERVICE_UUID, PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID)
-            peripheral.startNotify(WSS_SERVICE_UUID, WSS_MEASUREMENT_CHAR_UUID)
-            peripheral.startNotify(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK)
+            peripheral.startNotify(NotifyServiceUUID, NotifyCharacteristicUUID)
+            setupNotifyStream()
         }
 
         override fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
             if (status == GattStatus.SUCCESS) {
                 val isNotifying = peripheral.isNotifying(characteristic)
                 Timber.i("SUCCESS: Notify set to '%s' for %s", isNotifying, characteristic.uuid)
-                if (characteristic.uuid == CONTOUR_CLOCK) {
-                    writeContourClock(peripheral)
-                } else if (characteristic.uuid == GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID) {
-                    writeGetAllGlucoseMeasurements(peripheral)
-                }
+                //setTime(peripheral)
+                setTime()
+                getHealthDetail()
             } else {
                 Timber.e("ERROR: Changing notification state failed for %s (%s)", characteristic.uuid, status)
             }
@@ -146,59 +95,78 @@ object BluetoothHandler {
 
         override fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
             when (characteristic.uuid) {
-                MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
-                    Timber.i("Manufacturer: ${value.getString()}")
-                }
-
-                MODEL_NUMBER_CHARACTERISTIC_UUID -> {
-                    Timber.i("Model: ${value.getString()}")
-                }
-
-                BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
-                    Timber.i("Battery: ${value.getUInt8()}")
-                }
-
-                CURRENT_TIME_CHARACTERISTIC_UUID -> {
-                    val currentTime = BluetoothBytesParser(value).getDateTime()
-                    val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
-                    Timber.i("Current time: ${dateFormat.format(currentTime)}")
-                }
-
-                HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = TemperatureMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
-
-                WSS_MEASUREMENT_CHAR_UUID -> {
-                    val measurement = WeightMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
-
-                PLX_SPOT_MEASUREMENT_CHAR_UUID -> {
-                    val measurement = PulseOximeterSpotMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
-
-                PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID -> {
-                    val measurement = PulseOximeterContinuousMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
-
-                BLP_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = BloodPressureMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
-
-                GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = GlucoseMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
-
-                HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = HeartRateMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
+                NotifyCharacteristicUUID -> {
+                    Timber.i("Got: ${value.asHexString()}")
+                    StarmaxBleClient.instance.notify(value)
                 }
             }
+        }
+
+        fun setupNotifyStream() {
+            StarmaxBleClient.instance.notifyStream()
+                .takeUntil(disconnectSubject)
+                .subscribe(
+                    {
+                        if (it.data is Notify.StepHistory) {
+                            Timber.i("notify stream ${it.byteArray.asHexString()}")
+                        }
+                    }
+                )
+        }
+
+        fun setTime(peripheral: BluetoothPeripheral) {
+            Timber.i("Setting time")
+            writeCommand(peripheral, StarmaxSend().setTime())
+        }
+
+        fun setTime() {
+            StarmaxBleClient.instance.setTime().subscribe({
+                if (it.status == 0) {
+                    Timber.i("Successfully set time")
+                } else {
+                    Timber.e("Failed set time, with status ${it.status}")
+                }
+            }, {}).let {
+                sendDisposable.add(it)
+            }
+        }
+
+        fun getHealthDetail() {
+            StarmaxBleClient.instance.getHealthDetail().subscribe({
+                if (it.status == 0) {
+                    val result = ("Steps:${it.totalSteps}\n"
+                            + "总的卡路里(卡):${it.totalHeat}\n"
+                            + "Distance(m):${it.totalDistance}\n"
+                            + "Sleep(分钟):${it.totalSleep}\n"
+                            + "DeepSleep:${it.totalDeepSleep}\n"
+                            + "LightSleep:${it.totalLightSleep}\n"
+                            + "Heartrate:${it.currentHeartRate}\n"
+                            + "Bloodpressure:${it.currentSs} /${it.currentFz}\n"
+                            + "BloodOxygen:${it.currentBloodOxygen}\n"
+                            + "Pressure:${it.currentPressure}\n"
+                            + "MAI:${it.currentMai}\n"
+                            + "MET:${it.currentMet}\n"
+                            + "TEMP:${it.currentTemp}\n"
+                            + "BloodGlucose:${it.currentBloodSugar}\n"
+                            + "Worn${it.isWear}\n"
+                            + "RespirationRate${it.respirationRate}\n"
+                            + "Shakehead${it.shakeHead}"
+                            )
+                    Timber.i("Received health details")
+                    Timber.i(result)
+                } else {
+                    Timber.e("Failed to get health stats: ${it.status}")
+                }
+            }, {}).let {
+
+            }
+        }
+
+        fun writeCommand(peripheral: BluetoothPeripheral, command: ByteArray) {
+            peripheral.writeCharacteristic(WriteServiceUUID, WriteCharacteristicUUID,command,
+                WITH_RESPONSE
+            )
+
         }
 
         fun sendMeasurement(value: String) {
@@ -206,32 +174,6 @@ object BluetoothHandler {
                 Timber.i(value)
                 measurementFlow_.emit(value)
             }
-        }
-
-        private fun writeContourClock(peripheral: BluetoothPeripheral) {
-            val calendar = Calendar.getInstance()
-            val offsetInMinutes = calendar.timeZone.rawOffset / 60000
-            calendar.timeZone = TimeZone.getTimeZone("UTC")
-
-            val bytes = BluetoothBytesBuilder(10u, ByteOrder.LITTLE_ENDIAN)
-                .addUInt8(1u)
-                .addUInt16(calendar[Calendar.YEAR])
-                .addUInt8(calendar[Calendar.MONTH] + 1)
-                .addUInt8(calendar[Calendar.DAY_OF_MONTH])
-                .addUInt8(calendar[Calendar.HOUR_OF_DAY])
-                .addUInt8(calendar[Calendar.MINUTE])
-                .addUInt8(calendar[Calendar.SECOND])
-                .addInt16(offsetInMinutes)
-                .build()
-
-            peripheral.writeCharacteristic(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK, bytes, WITH_RESPONSE)
-        }
-
-        private fun writeGetAllGlucoseMeasurements(peripheral: BluetoothPeripheral) {
-            val opCodeReportStoredRecords: Byte = 1
-            val operatorAllRecords: Byte = 1
-            val command = byteArrayOf(opCodeReportStoredRecords, operatorAllRecords)
-            peripheral.writeCharacteristic(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, command, WITH_RESPONSE)
         }
     }
 
@@ -277,16 +219,15 @@ object BluetoothHandler {
         }
     }
 
+    fun initStarMax() {
+        StarmaxBleClient.instance.notify(byteArrayOf("00"))
+    }
+
     fun startScanning() {
         if(centralManager.isNotScanning) {
-            centralManager.scanForPeripheralsWithServices(
+            centralManager.scanForPeripheralsWithNames(
                 setOf(
-                    BLP_SERVICE_UUID,
-                    GLUCOSE_SERVICE_UUID,
-                    HRS_SERVICE_UUID,
-                    HTS_SERVICE_UUID,
-                    PLX_SERVICE_UUID,
-                    WSS_SERVICE_UUID
+                    "GTL1-93c2"
                 )
             )
         }
