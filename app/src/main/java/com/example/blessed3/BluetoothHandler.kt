@@ -41,6 +41,7 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import com.starmax.bluetoothsdk.data.MessageType
 import com.starmax.bluetoothsdk.StarmaxBleClient
 import com.starmax.bluetoothsdk.StarmaxSend
 import com.welie.blessed.WriteType
@@ -88,6 +89,15 @@ object BluetoothHandler {
                 //setTime(peripheral)
                 setTime()
                 getHealthDetail()
+                pushMessage(MessageType.Other, "Xfer!", "Wait!")
+                val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                val stepDate = Calendar.getInstance()
+                Timber.i("Getting step history for ${formatter.format(stepDate.time)}")
+                getStepHistory(stepDate)
+                stepDate.add(Calendar.DATE, -1)
+                Timber.i("Getting step history for ${formatter.format(stepDate.time)}")
+                getStepHistory(stepDate)
+                pushMessage(MessageType.Other, "Xfer!", "Done!")
             } else {
                 Timber.e("ERROR: Changing notification state failed for %s (%s)", characteristic.uuid, status)
             }
@@ -162,6 +172,73 @@ object BluetoothHandler {
             }
         }
 
+        fun pushMessage(messageType: MessageType, title: String, content: String) {
+            StarmaxBleClient.instance.sendMessage(messageType, title, content).subscribe({
+                if (it.status == 0) {
+                    Timber.i("Successfully sent message: $title")
+                } else {
+                    Timber.e("Failed to send message, with status ${it.status}")
+                }
+            }, {
+                Timber.e("Error sending message: ${it.message}")
+            }).let {
+                sendDisposable.add(it)
+            }
+        }
+
+        fun getStepHistory(calendar: Calendar) {
+            StarmaxBleClient.instance.getStepHistory(calendar).subscribe({
+                val stepInfo : Notify.StepHistory = it
+                if (it.status == 0) {
+                    val result = StringBuilder()
+                    result.append("Step History for ${it.year}-${it.month}-${it.day}:\n")
+                    result.append("Interval: ${it.interval} minutes\n")
+                    result.append("Data Length: ${it.dataLength}\n")
+                    
+                    // Process step data
+                    if (it.stepsList.isNotEmpty()) {
+                        result.append("\nStep Data:\n")
+                        it.stepsList.forEach { step ->
+                            result.append("${step.hour}:${String.format("%02d", step.minute)} - ")
+                            result.append("Steps: ${step.steps}, ")
+                            result.append("Calories: ${step.calorie}, ")
+                            result.append("Distance: ${step.distance}m\n")
+                        }
+                    }
+                    
+                    // Process sleep data
+                    if (it.sleepsList.isNotEmpty()) {
+                        result.append("\nSleep Data:\n")
+                        it.sleepsList.forEach { sleep ->
+                            val sleepStatusText = when (sleep.sleepStatus) {
+                                1 -> "Start sleep"
+                                2 -> "Light sleep"
+                                3 -> "Deep sleep"
+                                4 -> "Awake"
+                                5 -> "REM"
+                                129 -> "Start nap"
+                                130 -> "Light sleep (nap)"
+                                131 -> "Deep sleep (nap)"
+                                132 -> "Awake (nap)"
+                                133 -> "REM (nap)"
+                                else -> "Unknown (${sleep.sleepStatus})"
+                            }
+                            result.append("${sleep.hour}:${String.format("%02d", sleep.minute)} - $sleepStatusText\n")
+                        }
+                    }
+                    
+                    Timber.i("Received step history data for date")
+                    Timber.i(result.toString())
+                } else {
+                    Timber.e("Failed to get step history: ${it.status}")
+                }
+            }, {
+                Timber.e("Error getting step history: ${it.message}")
+            }).let {
+                sendDisposable.add(it)
+            }
+        }
+
         fun writeCommand(peripheral: BluetoothPeripheral, command: ByteArray) {
             peripheral.writeCharacteristic(WriteServiceUUID, WriteCharacteristicUUID,command,
                 WITH_RESPONSE
@@ -227,7 +304,8 @@ object BluetoothHandler {
         if(centralManager.isNotScanning) {
             centralManager.scanForPeripheralsWithNames(
                 setOf(
-                    "GTL1-93c2"
+                    "GTL1-682a"
+//                    "GTL1-93c2"
                 )
             )
         }
@@ -243,6 +321,24 @@ object BluetoothHandler {
 
         this.context = context.applicationContext
         this.centralManager = BluetoothCentralManager(this.context, bluetoothCentralManagerCallback, handler)
+    }
+
+    /**
+     * Push message to the device based on section 6.21 of the Starmax Bluetooth SDK documentation
+     * @param messageType The type of message to send
+     * @param title The message title
+     * @param content The message content
+     */
+    fun pushMessage(messageType: MessageType, title: String, content: String) {
+        bluetoothPeripheralCallback.pushMessage(messageType, title, content)
+    }
+
+    /**
+     * Get step and sleep history for a specific date based on section 6.26 of the Starmax Bluetooth SDK documentation
+     * @param calendar The date for which to retrieve step history data
+     */
+    fun getStepHistory(calendar: Calendar) {
+        bluetoothPeripheralCallback.getStepHistory(calendar)
     }
 }
 
