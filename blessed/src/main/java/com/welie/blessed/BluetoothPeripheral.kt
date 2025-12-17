@@ -1135,7 +1135,14 @@ class BluetoothPeripheral internal constructor(
         val descriptor = characteristic.getDescriptor(CCC_DESCRIPTOR_UUID)
         if (descriptor == null) {
             val message = String.format("could not get CCC descriptor for characteristic %s", characteristic.uuid)
-            throw IllegalArgumentException(message)
+            //throw IllegalArgumentException(message)
+            //See: https://github.com/weliem/blessed-android/issues/30 and https://github.com/DFRobot/BLE_firmware_V1.9/issues/5
+            Logger.e(TAG, "$message. However, continue for legacy support.")
+            bluetoothGatt?.setCharacteristicNotification(characteristic, enable) ?: run {
+                Logger.e(TAG, "Failed bluetoothGatt?.setCharacteristicNotification(characteristic, enable) because bluetoothGatt was null!")
+                return false
+            }
+            return true
         }
 
         // Check if characteristic has NOTIFY or INDICATE properties and set the correct byte value to be written
