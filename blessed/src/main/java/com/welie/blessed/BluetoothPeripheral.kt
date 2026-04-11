@@ -73,6 +73,11 @@ class BluetoothPeripheral internal constructor(
     private val notifyingCharacteristics: MutableSet<BluetoothGattCharacteristic> = HashSet()
     private var observeMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray) -> Unit> =
         ConcurrentHashMap()
+    private var readMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray, status: GattStatus) -> Unit> =
+        ConcurrentHashMap()
+    private var writeMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray, status: GattStatus) -> Unit> =
+        ConcurrentHashMap()
+
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var timeoutRunnable: Runnable? = null
@@ -242,7 +247,18 @@ class BluetoothPeripheral internal constructor(
                 Logger.e(TAG, "read failed for characteristic <%s>, status '%s'", characteristic.uuid, gattStatus)
             }
 
-            callbackHandler.post { peripheralCallback.onCharacteristicUpdate(this@BluetoothPeripheral, value, characteristic, gattStatus) }
+            readMap[characteristic]?.let {
+                callbackHandler.post { it(value, gattStatus) }
+            } ?: run {
+                callbackHandler.post {
+                    peripheralCallback.onCharacteristicUpdate(
+                        this@BluetoothPeripheral,
+                        value,
+                        characteristic,
+                        gattStatus
+                    )
+                }
+            }
             completedCommand()
         }
 
@@ -261,7 +277,19 @@ class BluetoothPeripheral internal constructor(
 
             val value = currentWriteBytes
             currentWriteBytes = ByteArray(0)
-            callbackHandler.post { peripheralCallback.onCharacteristicWrite(this@BluetoothPeripheral, value, characteristic, gattStatus) }
+
+            writeMap[characteristic]?.let {
+                callbackHandler.post { it(value, gattStatus) }
+            } ?: run {
+                callbackHandler.post {
+                    peripheralCallback.onCharacteristicWrite(
+                        this@BluetoothPeripheral,
+                        value,
+                        characteristic,
+                        gattStatus
+                    )
+                }
+            }
             completedCommand()
         }
 
@@ -739,6 +767,9 @@ class BluetoothPeripheral internal constructor(
         commandQueue.clear()
         commandQueueBusy = false
         notifyingCharacteristics.clear()
+        observeMap.clear()
+        readMap.clear()
+        writeMap.clear()
         currentMtu = DEFAULT_MTU
         currentCommand = IDLE
         manuallyBonding = false
@@ -917,6 +948,34 @@ class BluetoothPeripheral internal constructor(
         }
     }
 
+    /** Read the value of a characteristic with a callback.
+     *
+     * The provided callback will be triggered when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
+     *
+     * @param characteristic Specifies the characteristic to read.
+     * @param callback       the callback to trigger when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
+     * @return true if the operation was enqueued, otherwise false
+     * @throws IllegalArgumentException if the characteristic does not support reading
+     */
+    fun readCharacteristic(characteristic: BluetoothGattCharacteristic, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
+        if (doesNotSupportReading(characteristic)) {
+            val message = "characteristic <${characteristic.uuid}> does not have read property"
+            throw IllegalArgumentException(message)
+        }
+
+        return enqueue {
+            readMap[characteristic] = callback
+            if (bluetoothGatt?.readCharacteristic(characteristic) == true) {
+                Logger.d(TAG, "reading characteristic <%s>", characteristic.uuid)
+                nrTries++
+            } else {
+                Logger.e(TAG, "readCharacteristic failed for characteristic: %s", characteristic.uuid)
+                readMap.remove(characteristic)
+                completedCommand()
+            }
+        }
+    }
+
     private fun doesNotSupportReading(characteristic: BluetoothGattCharacteristic): Boolean {
         return characteristic.properties and BluetoothGattCharacteristic.PROPERTY_READ == 0
     }
@@ -953,6 +1012,40 @@ class BluetoothPeripheral internal constructor(
      * @return true if a write operation was succesfully enqueued, otherwise false
      * @throws IllegalArgumentException if the characteristic does not support writing with the specified writeType or the byte array is empty or too long
      */
+    fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: WriteType, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
+        require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
+        require(value.size <= getMaximumWriteValueLength(writeType)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
+
+        if (characteristic.doesNotSupportWriteType(writeType)) {
+            val message = "characteristic <${characteristic.uuid} does not support writeType '$writeType'"
+            throw IllegalArgumentException(message)
+        }
+
+        // Copy the value to avoid race conditions
+        val bytesToWrite = copyOf(value)
+        return enqueue {
+            writeMap[characteristic] = callback
+            if (willCauseLongWrite(bytesToWrite, writeType)) {
+                // Android will turn this into a Long Write because it is larger than the MTU - 3.
+                // When doing a Long Write the byte array will be automatically split in chunks of size MTU - 3.
+                // However, the peripheral's firmware must also support it, so it is not guaranteed to work.
+                // Long writes are also very inefficient because of the confirmation of each write operation.
+                // So it is better to increase MTU if possible. Hence a warning if this write becomes a long write...
+                // See https://stackoverflow.com/questions/48216517/rxandroidble-write-only-sends-the-first-20b
+                Logger.w(TAG, "value byte array is longer than allowed by MTU, write will fail if peripheral does not support long writes")
+            }
+
+            if (internalWriteCharacteristic(characteristic, bytesToWrite, writeType)) {
+                Logger.d(TAG, "writing <%s> to characteristic <%s>", bytesToWrite.asHexString(), characteristic.uuid)
+                nrTries++
+            } else {
+                Logger.e(TAG, "writeCharacteristic failed for characteristic: %s", characteristic.uuid)
+                writeMap.remove(characteristic)
+                completedCommand()
+            }
+        }
+    }
+
     fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: WriteType): Boolean {
         require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
         require(value.size <= getMaximumWriteValueLength(writeType)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
