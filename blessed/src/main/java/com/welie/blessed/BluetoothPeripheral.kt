@@ -41,9 +41,11 @@ import android.os.Looper
 import android.os.Parcel
 import android.os.SystemClock
 import java.util.Collections
+import java.util.HashMap
 import java.util.Locale
 import java.util.Queue
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.min
 
@@ -69,6 +71,9 @@ class BluetoothPeripheral internal constructor(
     private var currentWriteBytes = ByteArray(0)
     private var currentCommand = IDLE
     private val notifyingCharacteristics: MutableSet<BluetoothGattCharacteristic> = HashSet()
+    private var observeMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray) -> Unit> =
+        ConcurrentHashMap()
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private var timeoutRunnable: Runnable? = null
     private var discoverServicesRunnable: Runnable? = null
@@ -209,7 +214,18 @@ class BluetoothPeripheral internal constructor(
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
-            callbackHandler.post { peripheralCallback.onCharacteristicUpdate(this@BluetoothPeripheral, value, characteristic, GattStatus.SUCCESS) }
+            observeMap[characteristic]?.let {
+                callbackHandler.post { it(value) }
+            } ?: run {
+                callbackHandler.post {
+                    peripheralCallback.onCharacteristicUpdate(
+                        this@BluetoothPeripheral,
+                        value,
+                        characteristic,
+                        GattStatus.SUCCESS
+                    )
+                }
+            }
         }
 
         //@RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -1089,6 +1105,26 @@ class BluetoothPeripheral internal constructor(
         return setNotify(characteristic, true, ignoreCcdCheck)
     }
 
+    fun observe(characteristic: BluetoothGattCharacteristic, ignoreCcdCheck: Boolean = false, callback: (ByteArray) -> Unit) : Boolean {
+        observeMap[characteristic] = callback
+        return setNotify(
+            characteristic = characteristic,
+            enable = true,
+            ignoreCcdCheck = ignoreCcdCheck
+        )
+    }
+
+    fun observe(serviceUUID: UUID, characteristicUUID: UUID, ignoreCcdCheck: Boolean = false, callback: (ByteArray) -> Unit) : Boolean {
+        getCharacteristic(serviceUUID, characteristicUUID)?.let {
+            return observe(
+                characteristic = it,
+                ignoreCcdCheck = ignoreCcdCheck,
+                callback = callback
+            )
+        }
+        return false
+    }
+
     fun stopNotify(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
         return setNotify(serviceUUID, characteristicUUID, false)
     }
@@ -1096,6 +1132,8 @@ class BluetoothPeripheral internal constructor(
     fun stopNotify(characteristic: BluetoothGattCharacteristic) : Boolean {
         return setNotify(characteristic, false)
     }
+
+
 
     /**
      * Set the notification state of a characteristic to 'on' or 'off'. The characteristic must support notifications or indications.
