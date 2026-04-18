@@ -40,12 +40,14 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import com.mlc.nordic_sdk.protocol.protocol_code.BPMProtocol
 
 
 @SuppressLint("StaticFieldLeak")
 object BluetoothHandler {
 
     private lateinit var context: Context
+    private var bpmProtocol = BPMProtocol()
 
     // Setup our own thread for BLE.
     // Use Handler(Looper.getMainLooper()) if you want to run on main thread
