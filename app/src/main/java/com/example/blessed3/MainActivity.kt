@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 import com.example.blessed3.ui.theme.Blessed3Theme
+import com.mlc.nordic_sdk.XlogUtils
 import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
