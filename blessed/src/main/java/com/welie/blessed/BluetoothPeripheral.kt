@@ -259,6 +259,7 @@ class BluetoothPeripheral internal constructor(
                     )
                 }
             }
+            readMap.remove(characteristic)
             completedCommand()
         }
 
@@ -290,6 +291,7 @@ class BluetoothPeripheral internal constructor(
                     )
                 }
             }
+            writeMap.remove(characteristic)
             completedCommand()
         }
 
