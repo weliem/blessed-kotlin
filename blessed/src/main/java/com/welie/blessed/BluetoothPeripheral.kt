@@ -71,6 +71,7 @@ class BluetoothPeripheral internal constructor(
     private var currentWriteBytes = ByteArray(0)
     private var currentCommand = IDLE
     private val notifyingCharacteristics: MutableSet<BluetoothGattCharacteristic> = HashSet()
+    private val characteristics: MutableMap<UUID, BluetoothGattCharacteristic> = HashMap()
     private var observeMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray) -> Unit> =
         ConcurrentHashMap()
     private var readMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray, status: GattStatus) -> Unit> =
@@ -156,8 +157,15 @@ class BluetoothPeripheral internal constructor(
                 disconnect()
                 return
             }
-
             Logger.i(TAG, "discovered %d services for '%s'", gatt.services.size, name)
+
+            // Process all characteristics and cache them for later use
+            characteristics.clear()
+            for (service in gatt.services) {
+                for (characteristic in service.characteristics) {
+                    characteristics[characteristic.uuid] = characteristic
+                }
+            }
 
             // Issue 'connected' since we are now fully connected including service discovery
             listener.connected(this@BluetoothPeripheral)
@@ -259,6 +267,7 @@ class BluetoothPeripheral internal constructor(
                     )
                 }
             }
+            readMap.remove(characteristic)
             completedCommand()
         }
 
@@ -290,6 +299,7 @@ class BluetoothPeripheral internal constructor(
                     )
                 }
             }
+            writeMap.remove(characteristic)
             completedCommand()
         }
 
@@ -852,6 +862,16 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
+     * Get the BluetoothGattCharacteristic object for a characteristic UUID.
+     *
+     * @param characteristicUUID the UUID of the chararacteristic
+     * @return the BluetoothGattCharacteristic object for the characteristic UUID or null if the peripheral does not have a characteristic with the specified UUID
+     */
+    fun getCharacteristic(characteristicUUID: UUID): BluetoothGattCharacteristic? {
+        return characteristics[characteristicUUID]
+    }
+
+    /**
      * Returns the connection state of the peripheral.
      *
      * @return the connection state.
@@ -922,6 +942,19 @@ class BluetoothPeripheral internal constructor(
         return characteristic?.let { readCharacteristic(it) } ?: false
     }
 
+    /** Read the value of a characteristic.
+     *
+     * Convenience function to read a characteristic without first having to find it.
+     *
+     * @param characteristicUUID the characteristic's UUID
+     * @return true if the characteristic was found and the operation was enqueued, otherwise false
+     * @throws IllegalArgumentException if the characteristic does not support reading
+     */
+    fun readCharacteristic(characteristicUUID: UUID): Boolean {
+        val characteristic = getCharacteristic(characteristicUUID)
+        return characteristic?.let { readCharacteristic(it) } ?: false
+    }
+
     /**
      * Read the value of a characteristic.
      *
@@ -946,6 +979,22 @@ class BluetoothPeripheral internal constructor(
                 completedCommand()
             }
         }
+    }
+
+    /** Read the value of a characteristic with a callback.
+     *
+     * Convenience function to read a characteristic without first having to find it.
+     * The provided callback will be triggered when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
+     *
+     * @param serviceUUID        the service UUID the characteristic belongs to
+     * @param characteristicUUID the characteristic's UUID
+     * @param callback           the callback to trigger when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
+     * @return true if the characteristic was found and the operation was enqueued, otherwise false
+     * @throws IllegalArgumentException if the characteristic does not support reading
+     */
+    fun readCharacteristic(serviceUUID: UUID, characteristicUUID: UUID, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
+        val characteristic = getCharacteristic(serviceUUID, characteristicUUID)
+        return characteristic?.let { readCharacteristic(it, callback) } ?: false
     }
 
     /** Read the value of a characteristic with a callback.
@@ -995,6 +1044,23 @@ class BluetoothPeripheral internal constructor(
      */
     fun writeCharacteristic(serviceUUID: UUID, characteristicUUID: UUID, value: ByteArray, writeType: WriteType): Boolean {
         val characteristic = getCharacteristic(serviceUUID, characteristicUUID)
+        return characteristic?.let { writeCharacteristic(it, value, writeType) } ?: false
+    }
+
+    /**
+     * Write a value to a characteristic using the specified write type.
+     *
+     * Convenience function to write a characteristic without first having to find it.
+     * All parameters must have a valid value in order for the operation to be enqueued.
+     *
+     * @param characteristicUUID the characteristic's UUID
+     * @param value              the byte array to write
+     * @param writeType          the write type to use when writing.
+     * @return true if the operation was enqueued, otherwise false
+     * @throws IllegalArgumentException if the characteristic does not support writing with the specified writeType or the byte array is empty or too long
+     */
+    fun writeCharacteristic(characteristicUUID: UUID, value: ByteArray, writeType: WriteType): Boolean {
+        val characteristic = getCharacteristic(characteristicUUID)
         return characteristic?.let { writeCharacteristic(it, value, writeType) } ?: false
     }
 
@@ -1209,6 +1275,25 @@ class BluetoothPeripheral internal constructor(
 
     fun observe(serviceUUID: UUID, characteristicUUID: UUID, ignoreCcdCheck: Boolean = false, callback: (ByteArray) -> Unit) : Boolean {
         getCharacteristic(serviceUUID, characteristicUUID)?.let {
+            return observe(
+                characteristic = it,
+                ignoreCcdCheck = ignoreCcdCheck,
+                callback = callback
+            )
+        }
+        return false
+    }
+
+    /** Convenience function to observe a characteristic without first having to find it.
+     * The provided callback will be triggered when the notification is received. The callback will be triggered with the value of the characteristic.
+     *
+     * @param characteristicUUID the characteristic's UUID
+     * @param callback           the callback to trigger when the notification is received. The callback will be triggered with the value of the characteristic.
+     * @return true if the characteristic was found and the operation was enqueued, otherwise false
+     * @throws IllegalArgumentException if the characteristic does not support notifications or indications
+     */
+    fun observe(characteristicUUID: UUID, ignoreCcdCheck: Boolean = false, callback: (ByteArray) -> Unit) : Boolean {
+        getCharacteristic(characteristicUUID)?.let {
             return observe(
                 characteristic = it,
                 ignoreCcdCheck = ignoreCcdCheck,

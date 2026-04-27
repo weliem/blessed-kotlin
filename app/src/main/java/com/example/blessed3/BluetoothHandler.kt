@@ -102,7 +102,9 @@ object BluetoothHandler {
     private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
             peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
-            peripheral.readCharacteristic(DIS_SERVICE_UUID, MANUFACTURER_NAME_CHARACTERISTIC_UUID)
+            peripheral.readCharacteristic(DIS_SERVICE_UUID, MANUFACTURER_NAME_CHARACTERISTIC_UUID) { value: ByteArray, status: GattStatus ->
+                Timber.i("Manufacturer: ${value.getString()}")
+            }
             peripheral.readCharacteristic(DIS_SERVICE_UUID, MODEL_NUMBER_CHARACTERISTIC_UUID)
 
             // Write Current Time if possible
@@ -114,14 +116,19 @@ object BluetoothHandler {
                     // Write the current time unless it is an Omron device
                     if (!peripheral.name.contains("BLEsmart_", true)) {
                         val currentTime = currentTimeByteArrayOf(Calendar.getInstance())
-                        peripheral.writeCharacteristic(it, currentTime, WITH_RESPONSE)
+                        peripheral.writeCharacteristic(it, currentTime, WITH_RESPONSE) { value: ByteArray, status: GattStatus ->
+                            Timber.i("Write current time: ${status == GattStatus.SUCCESS}")
+                        }
                     }
                 }
             }
 
             peripheral.readCharacteristic(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID)
             peripheral.startNotify(BLP_SERVICE_UUID, BLP_MEASUREMENT_CHARACTERISTIC_UUID)
-            peripheral.startNotify(HTS_SERVICE_UUID, HTS_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.observe(HTS_MEASUREMENT_CHARACTERISTIC_UUID) {
+                val measurement = TemperatureMeasurement.fromBytes(it) ?: return@observe
+                sendMeasurement(measurement.toString())
+            }
             peripheral.startNotify(HRS_SERVICE_UUID, HRS_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(PLX_SERVICE_UUID, PLX_SPOT_MEASUREMENT_CHAR_UUID)
@@ -146,9 +153,9 @@ object BluetoothHandler {
 
         override fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
             when (characteristic.uuid) {
-                MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
-                    Timber.i("Manufacturer: ${value.getString()}")
-                }
+//                MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
+//                    Timber.i("Manufacturer: ${value.getString()}")
+//                }
 
                 MODEL_NUMBER_CHARACTERISTIC_UUID -> {
                     Timber.i("Model: ${value.getString()}")
@@ -164,10 +171,10 @@ object BluetoothHandler {
                     Timber.i("Current time: ${dateFormat.format(currentTime)}")
                 }
 
-                HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
-                    val measurement = TemperatureMeasurement.fromBytes(value) ?: return
-                    sendMeasurement(measurement.toString())
-                }
+//                HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
+//                    val measurement = TemperatureMeasurement.fromBytes(value) ?: return
+//                    sendMeasurement(measurement.toString())
+//                }
 
                 WSS_MEASUREMENT_CHAR_UUID -> {
                     val measurement = WeightMeasurement.fromBytes(value) ?: return
