@@ -1303,6 +1303,41 @@ class BluetoothPeripheral internal constructor(
         return false
     }
 
+    /** Convenience function to stop observing a characteristic without first having to find it.
+     *
+     * @param serviceUUID        the service UUID the characteristic belongs to
+     * @param characteristicUUID the characteristic's UUID
+     * @return true if the characteristic was found and the operation was enqueued, otherwise false
+     */
+    fun stopObserving(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
+        getCharacteristic(serviceUUID, characteristicUUID)?.let {
+            stopObserving(it)
+        }
+        return false
+    }
+
+    /** Convenience function to stop observing a characteristic without first having to find it.
+     *
+     * @param characteristicUUID the characteristic's UUID
+     * @return true if the characteristic was found and the operation was enqueued, otherwise false
+     */
+    fun stopObserving(characteristicUUID: UUID) : Boolean {
+        getCharacteristic(characteristicUUID)?.let {
+            stopObserving(it)
+        }
+        return false
+    }
+
+    /** Stop observing a characteristic. This will turn off notifications/indications for the characteristic and remove the callback.
+     *
+     * @param characteristic the characteristic to stop observing
+     * @return true if the operation was enqueued, otherwise false
+     */
+    fun stopObserving(characteristic: BluetoothGattCharacteristic) : Boolean {
+        observeMap.remove(characteristic)
+        return setNotify(characteristic, false)
+    }
+
     fun stopNotify(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
         return setNotify(serviceUUID, characteristicUUID, false)
     }
@@ -1310,8 +1345,6 @@ class BluetoothPeripheral internal constructor(
     fun stopNotify(characteristic: BluetoothGattCharacteristic) : Boolean {
         return setNotify(characteristic, false)
     }
-
-
 
     /**
      * Set the notification state of a characteristic to 'on' or 'off'. The characteristic must support notifications or indications.
