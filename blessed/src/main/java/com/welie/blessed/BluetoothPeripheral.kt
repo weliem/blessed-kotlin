@@ -41,7 +41,6 @@ import android.os.Looper
 import android.os.Parcel
 import android.os.SystemClock
 import java.util.Collections
-import java.util.HashMap
 import java.util.Locale
 import java.util.Queue
 import java.util.UUID
@@ -71,7 +70,7 @@ class BluetoothPeripheral internal constructor(
     private var currentWriteBytes = ByteArray(0)
     private var currentCommand = IDLE
     private val notifyingCharacteristics: MutableSet<BluetoothGattCharacteristic> = HashSet()
-    private val characteristics: MutableMap<UUID, BluetoothGattCharacteristic> = HashMap()
+    private val characteristics: MutableMap<UUID, BluetoothGattCharacteristic> = mutableMapOf()
     private var observeMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray) -> Unit> =
         ConcurrentHashMap()
     private var readMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray, status: GattStatus) -> Unit> =
@@ -117,9 +116,8 @@ class BluetoothPeripheral internal constructor(
     var currentMtu = DEFAULT_MTU
         private set
 
-    internal var queuedCommands: Int = 0
-        get() =  commandQueue.size
-        private set
+    internal val queuedCommands: Int
+        get() = commandQueue.size
 
     /**
      * This abstract class is used to implement BluetoothGatt callbacks.
@@ -813,15 +811,7 @@ class BluetoothPeripheral internal constructor(
      * @return name of the bluetooth peripheral
      */
     val name: String
-        get() {
-            val name = device.name
-            if (name != null) {
-                // Cache the name so that we even know it when bluetooth is switched off
-                cachedName = name
-                return name
-            }
-            return cachedName
-        }
+        get() = device.name?.also { cachedName = it } ?: cachedName
 
     /**
      * Get the bond state of the bluetooth peripheral.
@@ -1075,10 +1065,11 @@ class BluetoothPeripheral internal constructor(
      * @param characteristic the characteristic to write to
      * @param value          the byte array to write
      * @param writeType      the write type to use when writing.
-     * @return true if a write operation was succesfully enqueued, otherwise false
+     * @param callback       optional callback invoked when the write completes; if null, [BluetoothPeripheralCallback.onCharacteristicWrite] is used instead
+     * @return true if a write operation was successfully enqueued, otherwise false
      * @throws IllegalArgumentException if the characteristic does not support writing with the specified writeType or the byte array is empty or too long
      */
-    fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: WriteType, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
+    fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: WriteType, callback: ((value: ByteArray, status: GattStatus) -> Unit)? = null): Boolean {
         require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
         require(value.size <= getMaximumWriteValueLength(writeType)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
 
@@ -1090,7 +1081,7 @@ class BluetoothPeripheral internal constructor(
         // Copy the value to avoid race conditions
         val bytesToWrite = copyOf(value)
         return enqueue {
-            writeMap[characteristic] = callback
+            if (callback != null) writeMap[characteristic] = callback
             if (willCauseLongWrite(bytesToWrite, writeType)) {
                 // Android will turn this into a Long Write because it is larger than the MTU - 3.
                 // When doing a Long Write the byte array will be automatically split in chunks of size MTU - 3.
@@ -1107,38 +1098,6 @@ class BluetoothPeripheral internal constructor(
             } else {
                 Logger.e(TAG, "writeCharacteristic failed for characteristic: %s", characteristic.uuid)
                 writeMap.remove(characteristic)
-                completedCommand()
-            }
-        }
-    }
-
-    fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: WriteType): Boolean {
-        require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
-        require(value.size <= getMaximumWriteValueLength(writeType)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
-
-        if (characteristic.doesNotSupportWriteType(writeType)) {
-            val message = "characteristic <${characteristic.uuid} does not support writeType '$writeType'"
-            throw IllegalArgumentException(message)
-        }
-
-        // Copy the value to avoid race conditions
-        val bytesToWrite = copyOf(value)
-        return enqueue {
-            if (willCauseLongWrite(bytesToWrite, writeType)) {
-                // Android will turn this into a Long Write because it is larger than the MTU - 3.
-                // When doing a Long Write the byte array will be automatically split in chunks of size MTU - 3.
-                // However, the peripheral's firmware must also support it, so it is not guaranteed to work.
-                // Long writes are also very inefficient because of the confirmation of each write operation.
-                // So it is better to increase MTU if possible. Hence a warning if this write becomes a long write...
-                // See https://stackoverflow.com/questions/48216517/rxandroidble-write-only-sends-the-first-20b
-                Logger.w(TAG, "value byte array is longer than allowed by MTU, write will fail if peripheral does not support long writes")
-            }
-
-            if (internalWriteCharacteristic(characteristic, bytesToWrite, writeType)) {
-                Logger.d(TAG, "writing <%s> to characteristic <%s>", bytesToWrite.asHexString(), characteristic.uuid)
-                nrTries++
-            } else {
-                Logger.e(TAG, "writeCharacteristic failed for characteristic: %s", characteristic.uuid)
                 completedCommand()
             }
         }
@@ -1310,10 +1269,8 @@ class BluetoothPeripheral internal constructor(
      * @return true if the characteristic was found and the operation was enqueued, otherwise false
      */
     fun stopObserving(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
-        getCharacteristic(serviceUUID, characteristicUUID)?.let {
-            stopObserving(it)
-        }
-        return false
+        val characteristic = getCharacteristic(serviceUUID, characteristicUUID) ?: return false
+        return stopObserving(characteristic)
     }
 
     /** Convenience function to stop observing a characteristic without first having to find it.
@@ -1322,10 +1279,8 @@ class BluetoothPeripheral internal constructor(
      * @return true if the characteristic was found and the operation was enqueued, otherwise false
      */
     fun stopObserving(characteristicUUID: UUID) : Boolean {
-        getCharacteristic(characteristicUUID)?.let {
-            stopObserving(it)
-        }
-        return false
+        val characteristic = getCharacteristic(characteristicUUID) ?: return false
+        return stopObserving(characteristic)
     }
 
     /** Stop observing a characteristic. This will turn off notifications/indications for the characteristic and remove the callback.
@@ -1448,7 +1403,7 @@ class BluetoothPeripheral internal constructor(
      * @return true if the operation was enqueued, false otherwise
      */
     fun requestMtu(mtu: Int): Boolean {
-        require(!(mtu < DEFAULT_MTU || mtu > MAX_MTU)) { "mtu must be between $DEFAULT_MTU and $MAX_MTU" }
+        require(mtu in DEFAULT_MTU..MAX_MTU) { "mtu must be between $DEFAULT_MTU and $MAX_MTU" }
 
         return enqueue {
             if (bluetoothGatt?.requestMtu(mtu) == true) {
@@ -1476,7 +1431,7 @@ class BluetoothPeripheral internal constructor(
             }
 
             // Complete command as there is no reliable callback for this, but allow some time
-            callbackHandler.postDelayed({ completedCommand() }, AVG_REQUEST_CONNECTION_PRIORITY_DURATION)
+            mainHandler.postDelayed({ completedCommand() }, AVG_REQUEST_CONNECTION_PRIORITY_DURATION)
         }
     }
 
@@ -1503,7 +1458,7 @@ class BluetoothPeripheral internal constructor(
                 // There is a bug in Android 13 where onPhyUpdate is not always called
                 // Therefore complete this command after a delay in order not to block the queue
                 currentCommand = IDLE
-                callbackHandler.postDelayed({ completedCommand() }, 200)
+                mainHandler.postDelayed({ completedCommand() }, 200)
             }
         }
     }
@@ -1739,7 +1694,7 @@ class BluetoothPeripheral internal constructor(
      * @param source byte array to make nonnull
      * @return the source byte array or an empty array if source was null
      */
-    fun nonnullOf(source: ByteArray?): ByteArray {
+    private fun nonnullOf(source: ByteArray?): ByteArray {
         return source ?: ByteArray(0)
     }
 
@@ -1775,15 +1730,7 @@ class BluetoothPeripheral internal constructor(
 
         // The average time it takes to complete requestConnectionPriority
         private const val AVG_REQUEST_CONNECTION_PRIORITY_DURATION: Long = 500
-        private const val NO_VALID_SERVICE_UUID_PROVIDED = "no valid service UUID provided"
-        private const val NO_VALID_CHARACTERISTIC_UUID_PROVIDED = "no valid characteristic UUID provided"
-        private const val NO_VALID_CHARACTERISTIC_PROVIDED = "no valid characteristic provided"
-        private const val NO_VALID_WRITE_TYPE_PROVIDED = "no valid writeType provided"
-        private const val NO_VALID_VALUE_PROVIDED = "no valid value provided"
-        private const val NO_VALID_DESCRIPTOR_PROVIDED = "no valid descriptor provided"
         private const val NO_VALID_PERIPHERAL_CALLBACK_PROVIDED = "no valid peripheral callback provided"
-        private const val NO_VALID_DEVICE_PROVIDED = "no valid device provided"
-        private const val NO_VALID_PRIORITY_PROVIDED = "no valid priority provided"
         private const val PERIPHERAL_NOT_CONNECTED = "peripheral not connected"
         private const val VALUE_BYTE_ARRAY_IS_EMPTY = "value byte array is empty"
         private const val VALUE_BYTE_ARRAY_IS_TOO_LONG = "value byte array is too long"
