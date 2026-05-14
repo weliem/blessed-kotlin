@@ -61,10 +61,10 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     private var autoConnectScanner: BluetoothLeScanner? = null
 
     private val connectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
-    val unconnectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
+    internal val unconnectedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
     private val scannedPeripherals: MutableMap<String, BluetoothPeripheral> = ConcurrentHashMap()
 
-    private val reconnectPeripheralAddresses: MutableList<String> = ArrayList()
+    private val reconnectPeripheralAddresses: MutableList<String> = mutableListOf()
     private val reconnectCallbacks: MutableMap<String, BluetoothPeripheralCallback> = ConcurrentHashMap()
     private var scanPeripheralNames = emptySet<String>()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -198,16 +198,13 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             val peripheralAddress = peripheral.address
 
             // Get the number of retries for this peripheral
-            var nrRetries = 0
-            val retries = connectionRetries[peripheralAddress]
-            if (retries != null) nrRetries = retries
+            val nrRetries = connectionRetries.getOrDefault(peripheralAddress, 0)
             removePeripheralFromCaches(peripheralAddress)
 
             // Retry connection or conclude the connection has failed
             if (nrRetries < MAX_CONNECTION_RETRIES && status != HciStatus.CONNECTION_FAILED_ESTABLISHMENT) {
                 Logger.i(TAG, "retrying connection to '%s' (%s)", peripheral.name, peripheralAddress)
-                nrRetries++
-                connectionRetries[peripheralAddress] = nrRetries
+                connectionRetries[peripheralAddress] = nrRetries + 1
                 unconnectedPeripherals[peripheralAddress] = peripheral
                 peripheral.connect()
             } else {
@@ -241,6 +238,10 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      * Closes BluetoothCentralManager and cleans up internals. BluetoothCentralManager will not work anymore after this is called.
      */
     fun close() {
+        stopScan()
+        stopAutoconnectScan()
+        cancelTimeoutTimer()
+        cancelAutoConnectTimer()
         scannedPeripherals.clear()
         unconnectedPeripherals.clear()
         connectedPeripherals.clear()
@@ -352,12 +353,10 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     fun scanForPeripheralsWithServices(serviceUUIDs: Set<UUID>) {
         require(serviceUUIDs.isNotEmpty()) { "at least one service UUID  must be supplied" }
 
-        val filters: MutableList<ScanFilter> = ArrayList()
-        for (serviceUUID in serviceUUIDs) {
-            val filter = ScanFilter.Builder()
+        val filters = serviceUUIDs.map { serviceUUID ->
+            ScanFilter.Builder()
                 .setServiceUuid(ParcelUuid(serviceUUID))
                 .build()
-            filters.add(filter)
         }
         startScan(filters, scanSettings, defaultScanCallback)
     }
@@ -386,16 +385,20 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     fun scanForPeripheralsWithAddresses(peripheralAddresses: Set<String>) {
         require(peripheralAddresses.isNotEmpty()) { "at least one peripheral address must be supplied" }
 
-        val filters: MutableList<ScanFilter> = ArrayList()
-        for (address in peripheralAddresses) {
+        val filters = peripheralAddresses.filter { address ->
             if (BluetoothAdapter.checkBluetoothAddress(address)) {
-                val filter = ScanFilter.Builder()
-                    .setDeviceAddress(address)
-                    .build()
-                filters.add(filter)
+                true
             } else {
                 Logger.e(TAG, "%s is not a valid address. Make sure all alphabetic characters are uppercase.", address)
+                false
             }
+        }.map { address ->
+            ScanFilter.Builder().setDeviceAddress(address).build()
+        }
+
+        if (filters.isEmpty()) {
+            Logger.e(TAG, "no valid addresses supplied")
+            return
         }
         startScan(filters, scanSettings, defaultScanCallback)
     }
@@ -430,13 +433,9 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
 
         autoConnectScanner = bluetoothAdapter.bluetoothLeScanner
         if (autoConnectScanner != null) {
-            val filters: MutableList<ScanFilter> = ArrayList()
-            for (address in reconnectPeripheralAddresses) {
-                val filter = ScanFilter.Builder()
-                    .setDeviceAddress(address)
-                    .build()
-                filters.add(filter)
-            }
+        val filters = reconnectPeripheralAddresses.map { address ->
+            ScanFilter.Builder().setDeviceAddress(address).build()
+        }
             autoConnectScanner?.startScan(filters, autoConnectScanSettings, autoConnectScanCallback)
             Logger.d(TAG, "started scanning to autoconnect peripherals (" + reconnectPeripheralAddresses.size + ")")
             setAutoConnectTimer()
@@ -672,25 +671,21 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
         }
 
         // Find the uncached peripherals and issue autoConnectPeripheral for the cached ones
-        val uncachedPeripherals: MutableMap<BluetoothPeripheral, BluetoothPeripheralCallback> = HashMap()
-        for (peripheral in batch.keys) {
+        val uncachedPeripherals: MutableMap<BluetoothPeripheral, BluetoothPeripheralCallback> = mutableMapOf()
+        batch.forEach { (peripheral, callback) ->
             if (peripheral.isUncached) {
-                batch[peripheral]?.let {
-                    uncachedPeripherals[peripheral] = it
-                }
+                uncachedPeripherals[peripheral] = callback
             } else {
-                autoConnect(peripheral, batch[peripheral]!!)
+                autoConnect(peripheral, callback)
             }
         }
 
         // Add uncached peripherals to list of peripherals to scan for
         if (uncachedPeripherals.isNotEmpty()) {
-            for (peripheral in uncachedPeripherals.keys) {
+            uncachedPeripherals.forEach { (peripheral, callback) ->
                 val peripheralAddress = peripheral.address
                 reconnectPeripheralAddresses.add(peripheralAddress)
-                uncachedPeripherals[peripheral]?.let {
-                    reconnectCallbacks[peripheralAddress] = it
-                }
+                reconnectCallbacks[peripheralAddress] = callback
                 unconnectedPeripherals[peripheralAddress] = peripheral
             }
             scanForAutoConnectPeripherals()
@@ -741,7 +736,24 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      * @return list of connected peripherals
      */
     fun getConnectedPeripherals(): List<BluetoothPeripheral> {
-        return ArrayList(connectedPeripherals.values)
+        return connectedPeripherals.values.toList()
+    }
+
+    /**
+     * Get the number of connected peripherals.
+     *
+     * @return number of connected peripherals
+     */
+    fun getConnectedPeripheralCount(): Int = connectedPeripherals.size
+
+    /**
+     * Check if a peripheral is connected.
+     *
+     * @param peripheral the peripheral to check
+     * @return true if the peripheral is connected, otherwise false
+     */
+    fun isConnected(peripheral: BluetoothPeripheral): Boolean {
+        return connectedPeripherals.containsKey(peripheral.address)
     }
 
     private fun bleNotReady(): Boolean {
@@ -809,11 +821,11 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
         timeoutRunnable = Runnable {
             Logger.d(TAG, "scanning timeout, restarting scan")
             val callback = currentCallback
-            val filters = if (currentFilters != null) currentFilters!! else emptyList()
+            val filters = currentFilters ?: emptyList()
             stopScan()
 
             // Restart the scan and timer
-            callBackHandler.postDelayed({ callback?.let { startScan(filters, scanSettings, it) } }, SCAN_RESTART_DELAY.toLong())
+            mainHandler.postDelayed({ callback?.let { startScan(filters, scanSettings, it) } }, SCAN_RESTART_DELAY.toLong())
         }
 
         timeoutRunnable?.let {
@@ -898,35 +910,23 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
     fun removeBond(peripheralAddress: String): Boolean {
         // Get the set of bonded devices
         val bondedDevices = bluetoothAdapter.bondedDevices
+        if (bondedDevices.isEmpty()) return true
 
         // See if the device is bonded
-        var peripheralToUnBond: BluetoothDevice? = null
-        if (bondedDevices.isNotEmpty()) {
-            for (device in bondedDevices) {
-                if (device.address == peripheralAddress) {
-                    peripheralToUnBond = device
-                }
-            }
-        } else {
-            return true
-        }
+        val peripheralToUnBond = bondedDevices.find { it.address == peripheralAddress } ?: return true
 
         // Try to remove the bond
-        return if (peripheralToUnBond != null) {
-            try {
-                val method = peripheralToUnBond.javaClass.getMethod("removeBond")
-                val result = method.invoke(peripheralToUnBond) as Boolean
-                if (result) {
-                    Logger.i(TAG, "Succesfully removed bond for '%s'", peripheralToUnBond.name)
-                }
-                result
-            } catch (e: Exception) {
-                Logger.i(TAG, "could not remove bond")
-                e.printStackTrace()
-                false
+        return try {
+            val method = peripheralToUnBond.javaClass.getMethod("removeBond")
+            val result = method.invoke(peripheralToUnBond) as Boolean
+            if (result) {
+                Logger.i(TAG, "Succesfully removed bond for '%s'", peripheralToUnBond.name)
             }
-        } else {
-            true
+            result
+        } catch (e: Exception) {
+            Logger.i(TAG, "could not remove bond")
+            e.printStackTrace()
+            false
         }
     }
 
