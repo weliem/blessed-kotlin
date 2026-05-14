@@ -905,7 +905,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
      * Remove bond for a peripheral.
      *
      * @param peripheralAddress the address of the peripheral
-     * @return true if the peripheral was succesfully bonded or it wasn't bonded, false if it was bonded and removing it failed
+     * @return true if the peripheral was successfully bonded, or it wasn't bonded, false if it was bonded and removing it failed
      */
     fun removeBond(peripheralAddress: String): Boolean {
         // Get the set of bonded devices
@@ -920,7 +920,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             val method = peripheralToUnBond.javaClass.getMethod("removeBond")
             val result = method.invoke(peripheralToUnBond) as Boolean
             if (result) {
-                Logger.i(TAG, "Succesfully removed bond for '%s'", peripheralToUnBond.name)
+                Logger.i(TAG, "Successfully removed bond for '%s'", peripheralToUnBond.name)
             }
             result
         } catch (e: Exception) {
