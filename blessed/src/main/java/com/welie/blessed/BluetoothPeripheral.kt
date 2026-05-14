@@ -49,10 +49,16 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.min
 
 /**
- * Represents a remote Bluetooth peripheral and replaces BluetoothDevice and BluetoothGatt
+ * Represents a remote Bluetooth Low Energy peripheral.
  *
- * A [BluetoothPeripheral] lets you create a connection with the peripheral or query information about it.
- * This class is a wrapper around the [BluetoothDevice] and takes care of operation queueing, some Android bugs, and provides several convenience functions.
+ * [BluetoothPeripheral] wraps [android.bluetooth.BluetoothDevice] and [android.bluetooth.BluetoothGatt]
+ * into a single, easy-to-use API. It takes care of:
+ * - Sequential GATT operation queuing so that only one operation is in-flight at a time.
+ * - Automatic retries when an operation fails due to an ongoing bonding procedure.
+ * - Workarounds for well-known Android BLE stack bugs (Nokia 8, Samsung, Android 13 PHY, etc.).
+ * - Transparent handling of the deprecated pre-API 33 GATT callback signatures.
+ *
+ * Instances are created and managed by [BluetoothCentralManager]; do not construct them directly.
  */
 @SuppressLint("MissingPermission")
 @Suppress("unused", "deprecation")
@@ -60,8 +66,20 @@ class BluetoothPeripheral internal constructor(
     private val context: Context,
     internal var device: BluetoothDevice,
     private val listener: InternalCallback,
+    /**
+     * The callback that receives all GATT-level events for this peripheral.
+     *
+     * This can be replaced at any time (even while connected) to redirect events to a
+     * different handler — for example when navigating between screens in your application.
+     */
     var peripheralCallback: BluetoothPeripheralCallback,
     private val callbackHandler: Handler,
+    /**
+     * The Bluetooth transport used when establishing a connection, as specified at creation time.
+     *
+     * Typically [Transport.LE]. Can be changed via [BluetoothCentralManager.setTransport] before
+     * creating the peripheral object, after which a new peripheral instance must be obtained.
+     */
     val transport: Transport
 ) {
     @Volatile
@@ -100,18 +118,32 @@ class BluetoothPeripheral internal constructor(
     private var connectTimestamp: Long = 0
 
     /**
-     * Get the type of the peripheral.
+     * The hardware type of this peripheral.
      *
-     * @return the PeripheralType
+     * Reflects the Android [android.bluetooth.BluetoothDevice.getType] value, mapped to
+     * [PeripheralType]. The value is updated to the real type once the connection succeeds.
+     * Before a first successful connection the value may be [PeripheralType.UNKNOWN] for
+     * peripherals that are not yet cached by the Bluetooth stack.
      */
     var type: PeripheralType = PeripheralType.fromValue(device.type)
 
+    /**
+     * The Bluetooth address type of this peripheral.
+     *
+     * On Android 13 (API 33) and 14 the address type is read from the device's internal
+     * [android.os.Parcel] representation because no public API exists. On Android 15 (API 35)
+     * and higher the official [android.bluetooth.BluetoothDevice.addressType] API is used.
+     * On older platforms this returns [AddressType.UNKNOWN].
+     */
     var addressType: AddressType = device.addressType()
 
     /**
-     * Returns the currently set MTU
+     * The currently negotiated ATT MTU for this connection, in bytes.
      *
-     * @return the MTU
+     * The default value is 23 bytes (the Bluetooth LE minimum). After a successful
+     * [requestMtu] call the value is updated to the MTU agreed upon by both sides.
+     * Use [getMaximumWriteValueLength] to determine how many payload bytes can be written
+     * in a single operation for a given [WriteType].
      */
     var currentMtu = DEFAULT_MTU
         private set
@@ -584,6 +616,15 @@ class BluetoothPeripheral internal constructor(
         }
     }
 
+    /**
+     * Update the underlying [BluetoothDevice] used by this peripheral.
+     *
+     * Called internally by [BluetoothCentralManager] when a scan result arrives for this address
+     * so that the peripheral always holds the freshest device reference (e.g. after an address
+     * rotation or a Bluetooth adapter restart). Should not normally be called by application code.
+     *
+     * @param bluetoothDevice the new [BluetoothDevice] to associate with this peripheral
+     */
     fun setDevice(bluetoothDevice: BluetoothDevice) {
         device = bluetoothDevice
     }
@@ -612,7 +653,18 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Connect directly with the bluetooth device. This call will timeout in max 30 seconds (5 seconds on Samsung phones)
+     * Initiate a direct (non-background) connection to the peripheral.
+     *
+     * The connection attempt is started after a short internal delay and will time out after
+     * approximately 30 seconds on most Android devices (5 seconds on Samsung devices). The
+     * peripheral must be actively advertising for the connection to succeed.
+     *
+     * On success, service discovery is started automatically and
+     * [BluetoothPeripheralCallback.onServicesDiscovered] will be called when complete.
+     * On failure, [BluetoothCentralManagerCallback.onConnectionFailed] is called instead.
+     *
+     * This method has no effect if the peripheral is not currently in the
+     * [ConnectionState.DISCONNECTED] state.
      */
     fun connect() {
         // Make sure we are disconnected before we start making a connection
@@ -641,8 +693,19 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Try to connect to a device whenever it is found by the OS. This call never times out.
-     * Connecting to a device will take longer than when using connect()
+     * Ask the OS to connect to the peripheral automatically whenever it is found in range.
+     *
+     * Unlike [connect], this call never times out — the OS will keep trying in the background
+     * until a connection is established or [cancelConnection] is called. Connections typically
+     * take longer to establish than with a direct [connect] call.
+     *
+     * **Important:** Auto-connect only works for peripherals that are already known to the
+     * Bluetooth stack (i.e. cached). After the Bluetooth adapter is toggled off and back on
+     * the cache is cleared and auto-connect will not work until the peripheral is rediscovered
+     * via scanning. Use [BluetoothCentralManager.autoConnect] which handles this automatically.
+     *
+     * This method has no effect if the peripheral is not currently in the
+     * [ConnectionState.DISCONNECTED] state.
      */
     fun autoConnect() {
         // Note that this will only work for devices that are known! After turning BT on/off Android doesn't know the device anymore!
@@ -675,14 +738,18 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Create a bond with the peripheral.
+     * Initiate pairing (bonding) with the peripheral.
      *
+     * If a connection has already been issued or the peripheral is connected, the bond command
+     * is enqueued in the operation queue and bond-lifecycle events are delivered through
+     * [BluetoothPeripheralCallback.onBondingStarted], [BluetoothPeripheralCallback.onBondingSucceeded],
+     * and [BluetoothPeripheralCallback.onBondingFailed].
      *
-     * If a (auto)connect has been issued, the bonding command will be enqueued and you will
-     * receive updates via the [BluetoothPeripheralCallback]. Otherwise the bonding will
-     * be done immediately and no updates via the callback will happen.
+     * If called before any connection attempt the bond is initiated immediately on the Android
+     * Bluetooth stack without going through the operation queue. In that case you should listen
+     * for Android system broadcasts instead of relying on [BluetoothPeripheralCallback].
      *
-     * @return true if bonding was started/enqueued, false if not
+     * @return `true` if bonding was started or successfully enqueued, `false` otherwise
      */
     fun createBond(): Boolean {
         if (bluetoothGatt == null) {
@@ -706,10 +773,17 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Cancel an active or pending connection.
+     * Cancel an active or pending connection to the peripheral.
      *
+     * This operation is asynchronous. When the peripheral has been fully disconnected,
+     * [BluetoothCentralManagerCallback.onDisconnected] will be called with [HciStatus.SUCCESS].
      *
-     * This operation is asynchronous and you will receive a callback on onDisconnectedPeripheral.
+     * - If called while in the [ConnectionState.CONNECTING] state, the in-progress attempt is
+     *   aborted immediately.
+     * - If called while in the [ConnectionState.CONNECTED] state, a normal BLE disconnection
+     *   procedure is initiated.
+     * - If the peripheral is already [ConnectionState.DISCONNECTED] or
+     *   [ConnectionState.DISCONNECTING] this call has no effect.
      */
     fun cancelConnection() {
         if (bluetoothGatt == null) {
@@ -762,6 +836,13 @@ class BluetoothPeripheral internal constructor(
         }
     }
 
+    /**
+     * Immediately close the GATT connection without going through a proper BLE disconnection.
+     *
+     * This is called internally by [BluetoothCentralManager] when the Bluetooth adapter is
+     * turned off, because the stack will have already torn down all connections on its own.
+     * Application code should use [cancelConnection] instead.
+     */
     fun disconnectWhenBluetoothOff() {
         completeDisconnect(true, HciStatus.SUCCESS)
     }
@@ -796,9 +877,9 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Get the mac address of the bluetooth peripheral.
+     * The Bluetooth MAC address of this peripheral (e.g. `"AA:BB:CC:DD:EE:FF"`).
      *
-     * @return Address of the bluetooth peripheral
+     * The address is always in upper-case and uses colon separators.
      */
     val address: String
         get() = device.address
@@ -806,74 +887,99 @@ class BluetoothPeripheral internal constructor(
 
 
     /**
-     * Get the name of the bluetooth peripheral.
+     * The local name advertised by the peripheral.
      *
-     * @return name of the bluetooth peripheral
+     * The last successfully retrieved name is cached internally so that a non-empty string is
+     * returned even after the peripheral disconnects or the Bluetooth adapter is turned off.
+     * Returns an empty string if the peripheral has never advertised a name and no cached
+     * name is available.
      */
     val name: String
         get() = device.name?.also { cachedName = it } ?: cachedName
 
     /**
-     * Get the bond state of the bluetooth peripheral.
+     * The current bonding state of the peripheral.
      *
-     * @return the bond state
+     * Reflects the value returned by [android.bluetooth.BluetoothDevice.getBondState], mapped
+     * to [BondState]. The state transitions are delivered asynchronously via
+     * [BluetoothPeripheralCallback.onBondingStarted], [BluetoothPeripheralCallback.onBondingSucceeded],
+     * [BluetoothPeripheralCallback.onBondingFailed], and [BluetoothPeripheralCallback.onBondLost].
      */
     val bondState: BondState
         get() = BondState.fromValue(device.bondState)
 
     /**
-     * Get the services supported by the connected bluetooth peripheral.
-     * Only services that are also supported by [BluetoothCentralManager] are included.
+     * The list of GATT services discovered on the peripheral.
      *
-     * @return Supported services.
+     * Returns an empty list before [BluetoothPeripheralCallback.onServicesDiscovered] has been
+     * called or after the peripheral disconnects. The list is populated automatically after a
+     * successful connection and service discovery.
      */
     val services: List<BluetoothGattService>
         get() = bluetoothGatt?.services ?: emptyList()
 
     /**
-     * Get the BluetoothGattService object for a service UUID.
+     * Look up a GATT service by its UUID.
      *
-     * @param serviceUUID the UUID of the service
-     * @return the BluetoothGattService object for the service UUID or null if the peripheral does not have a service with the specified UUID
+     * @param serviceUUID the UUID of the service to find
+     * @return the matching [BluetoothGattService], or `null` if the peripheral is not connected,
+     *   service discovery has not completed yet, or no service with [serviceUUID] was found
      */
     fun getService(serviceUUID: UUID): BluetoothGattService? {
         return bluetoothGatt?.getService(serviceUUID)
     }
 
     /**
-     * Get the BluetoothGattCharacteristic object for a characteristic UUID.
+     * Look up a GATT characteristic by its service UUID and characteristic UUID.
      *
-     * @param serviceUUID        the service UUID the characteristic is part of
-     * @param characteristicUUID the UUID of the chararacteristic
-     * @return the BluetoothGattCharacteristic object for the characteristic UUID or null if the peripheral does not have a characteristic with the specified UUID
+     * Prefer this overload over [getCharacteristic] when the same characteristic UUID is used in
+     * multiple services on the same peripheral, as it uniquely identifies the characteristic.
+     *
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to find
+     * @return the matching [BluetoothGattCharacteristic], or `null` if the service or
+     *   characteristic was not found
      */
     fun getCharacteristic(serviceUUID: UUID, characteristicUUID: UUID): BluetoothGattCharacteristic? {
         return getService(serviceUUID)?.getCharacteristic(characteristicUUID)
     }
 
     /**
-     * Get the BluetoothGattCharacteristic object for a characteristic UUID.
+     * Look up a GATT characteristic by its UUID across all discovered services.
      *
-     * @param characteristicUUID the UUID of the chararacteristic
-     * @return the BluetoothGattCharacteristic object for the characteristic UUID or null if the peripheral does not have a characteristic with the specified UUID
+     * When multiple services expose a characteristic with the same UUID, only the last
+     * one encountered during service discovery is returned. Use
+     * [getCharacteristic] with a service UUID to target a specific service in that case.
+     *
+     * @param characteristicUUID the UUID of the characteristic to find
+     * @return the matching [BluetoothGattCharacteristic], or `null` if no characteristic with
+     *   [characteristicUUID] was found in any of the discovered services
      */
     fun getCharacteristic(characteristicUUID: UUID): BluetoothGattCharacteristic? {
         return characteristics[characteristicUUID]
     }
 
     /**
-     * Returns the connection state of the peripheral.
+     * Returns the current connection state of the peripheral.
      *
-     * @return the connection state.
+     * @return one of [ConnectionState.DISCONNECTED], [ConnectionState.CONNECTING],
+     *   [ConnectionState.CONNECTED], or [ConnectionState.DISCONNECTING]
      */
     fun getState(): ConnectionState {
         return ConnectionState.fromValue(state)
     }
 
     /**
-     * Get maximum length of byte array that can be written depending on WriteType
+     * Returns the maximum number of payload bytes that can be sent in a single write operation
+     * for the given [writeType].
      *
-     * This value is derived from the current negotiated MTU or the maximum characteristic length (512)
+     * The limit varies by write type:
+     * - [WriteType.WITH_RESPONSE] — up to 512 bytes (GATT long-write protocol handles splitting).
+     * - [WriteType.WITHOUT_RESPONSE] — up to `MTU - 3` bytes, capped at 512.
+     * - [WriteType.SIGNED] — up to `MTU - 15` bytes.
+     *
+     * @param writeType the [WriteType] for which to calculate the maximum payload size
+     * @return maximum byte count that can be written in a single operation for [writeType]
      */
     fun getMaximumWriteValueLength(writeType: WriteType): Int {
         return when (writeType) {
@@ -884,19 +990,23 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Boolean to indicate if the specified characteristic is currently notifying or indicating.
+     * Check whether the given characteristic is currently delivering notifications or indications.
      *
      * @param characteristic the characteristic to check
-     * @return true if the characteristic is notifying or indicating, false if it is not
+     * @return `true` if notifications or indications are enabled and active for [characteristic],
+     *   `false` otherwise
      */
     fun isNotifying(characteristic: BluetoothGattCharacteristic): Boolean {
         return notifyingCharacteristics.contains(characteristic)
     }
 
     /**
-     * Get all notifying/indicating characteristics
+     * Returns an unmodifiable snapshot of all characteristics that are currently notifying or
+     * indicating. The set is updated automatically as characteristics are subscribed to or
+     * unsubscribed from via [startNotify], [stopNotify], [observe], and [stopObserving].
      *
-     * @return Set of characteristics or empty set
+     * @return an unmodifiable [Set] of [BluetoothGattCharacteristic] objects that are actively
+     *   delivering notifications or indications; empty if none are active
      */
     fun getNotifyingCharacteristics(): Set<BluetoothGattCharacteristic> {
         return Collections.unmodifiableSet(notifyingCharacteristics)
@@ -910,35 +1020,48 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Check if the peripheral is uncached by the Android BLE stack
+     * Whether this peripheral is **not** cached in the Android Bluetooth stack.
      *
-     * @return true if unchached, otherwise false
+     * A peripheral is considered uncached ([PeripheralType.UNKNOWN]) if it has never been
+     * seen or connected to since the last Bluetooth adapter reset. Connecting to an uncached
+     * peripheral may fail because Android has to guess the address type. In that case use
+     * [BluetoothCentralManager.autoConnect] which will first scan for the peripheral before
+     * connecting.
+     *
+     * @return `true` if the peripheral is not in the Bluetooth cache, `false` if it is known
      */
     val isUncached: Boolean
         get() = type == PeripheralType.UNKNOWN
 
     /**
-     * Read the value of a characteristic.
+     * Read the value of a characteristic identified by service and characteristic UUIDs.
      *
-     * Convenience function to read a characteristic without first having to find it.
+     * Convenience overload that resolves the characteristic via [getCharacteristic] and delegates
+     * to [readCharacteristic]. The result is delivered to
+     * [BluetoothPeripheralCallback.onCharacteristicUpdate].
      *
-     * @param serviceUUID        the service UUID the characteristic belongs to
-     * @param characteristicUUID the characteristic's UUID
-     * @return true if the characteristic was found and the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support reading
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to read
+     * @return `true` if the characteristic was found and the read was enqueued, `false` if the
+     *   characteristic could not be found or the peripheral is not connected
+     * @throws IllegalArgumentException if the characteristic does not have the read property
      */
     fun readCharacteristic(serviceUUID: UUID, characteristicUUID: UUID): Boolean {
         val characteristic = getCharacteristic(serviceUUID, characteristicUUID)
         return characteristic?.let { readCharacteristic(it) } ?: false
     }
 
-    /** Read the value of a characteristic.
+    /**
+     * Read the value of a characteristic identified by its UUID.
      *
-     * Convenience function to read a characteristic without first having to find it.
+     * Convenience overload that resolves the characteristic via [getCharacteristic] and delegates
+     * to [readCharacteristic]. The result is delivered to
+     * [BluetoothPeripheralCallback.onCharacteristicUpdate].
      *
-     * @param characteristicUUID the characteristic's UUID
-     * @return true if the characteristic was found and the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support reading
+     * @param characteristicUUID the UUID of the characteristic to read
+     * @return `true` if the characteristic was found and the read was enqueued, `false` if the
+     *   characteristic could not be found or the peripheral is not connected
+     * @throws IllegalArgumentException if the characteristic does not have the read property
      */
     fun readCharacteristic(characteristicUUID: UUID): Boolean {
         val characteristic = getCharacteristic(characteristicUUID)
@@ -948,11 +1071,13 @@ class BluetoothPeripheral internal constructor(
     /**
      * Read the value of a characteristic.
      *
-     * [BluetoothPeripheralCallback.onCharacteristicUpdate] will be triggered as a result of this call.
+     * The read is queued and executed sequentially with all other GATT operations. When complete,
+     * [BluetoothPeripheralCallback.onCharacteristicUpdate] is called with the value and status.
      *
-     * @param characteristic Specifies the characteristic to read.
-     * @return true if the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support reading
+     * @param characteristic the [BluetoothGattCharacteristic] to read
+     * @return `true` if the read was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
+     * @throws IllegalArgumentException if [characteristic] does not have the read property
      */
     fun readCharacteristic(characteristic: BluetoothGattCharacteristic): Boolean {
         if (doesNotSupportReading(characteristic)) {
@@ -971,30 +1096,39 @@ class BluetoothPeripheral internal constructor(
         }
     }
 
-    /** Read the value of a characteristic with a callback.
+    /**
+     * Read the value of a characteristic identified by service and characteristic UUIDs,
+     * delivering the result to a callback lambda instead of [BluetoothPeripheralCallback].
      *
-     * Convenience function to read a characteristic without first having to find it.
-     * The provided callback will be triggered when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
-     *
-     * @param serviceUUID        the service UUID the characteristic belongs to
-     * @param characteristicUUID the characteristic's UUID
-     * @param callback           the callback to trigger when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
-     * @return true if the characteristic was found and the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support reading
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to read
+     * @param callback           lambda invoked on the callback handler thread when the read
+     *   completes. Receives:
+     *   - `value: ByteArray` — the bytes read from the characteristic (empty on failure).
+     *   - `status: GattStatus` — [GattStatus.SUCCESS] on success, or an error code.
+     * @return `true` if the characteristic was found and the read was enqueued, `false` if the
+     *   characteristic could not be found or the peripheral is not connected
+     * @throws IllegalArgumentException if the characteristic does not have the read property
      */
     fun readCharacteristic(serviceUUID: UUID, characteristicUUID: UUID, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
         val characteristic = getCharacteristic(serviceUUID, characteristicUUID)
         return characteristic?.let { readCharacteristic(it, callback) } ?: false
     }
 
-    /** Read the value of a characteristic with a callback.
+    /**
+     * Read the value of a characteristic, delivering the result to a callback lambda instead of
+     * [BluetoothPeripheralCallback].
      *
-     * The provided callback will be triggered when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
+     * The read is queued and executed sequentially with all other GATT operations.
      *
-     * @param characteristic Specifies the characteristic to read.
-     * @param callback       the callback to trigger when the read operation is completed. The callback will be triggered with the value of the characteristic and the status of the read operation.
-     * @return true if the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support reading
+     * @param characteristic the [BluetoothGattCharacteristic] to read
+     * @param callback       lambda invoked on the callback handler thread when the read completes.
+     *   Receives:
+     *   - `value: ByteArray` — the bytes read from the characteristic (empty on failure).
+     *   - `status: GattStatus` — [GattStatus.SUCCESS] on success, or an error code.
+     * @return `true` if the read was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
+     * @throws IllegalArgumentException if [characteristic] does not have the read property
      */
     fun readCharacteristic(characteristic: BluetoothGattCharacteristic, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
         if (doesNotSupportReading(characteristic)) {
@@ -1020,54 +1154,80 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Write a value to a characteristic using the specified write type.
+     * Write a value to a characteristic identified by service and characteristic UUIDs.
      *
-     * Convenience function to write a characteristic without first having to find it.
-     * All parameters must have a valid value in order for the operation to be enqueued.
+     * Convenience overload that resolves the characteristic via [getCharacteristic] and delegates
+     * to [writeCharacteristic].
      *
-     * @param serviceUUID        the service UUID the characteristic belongs to
-     * @param characteristicUUID the characteristic's UUID
-     * @param value              the byte array to write
-     * @param writeType          the write type to use when writing.
-     * @return true if the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support writing with the specified writeType or the byte array is empty or too long
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to write to
+     * @param value              the byte array to write; must not be empty and must not exceed
+     *   [getMaximumWriteValueLength] bytes for [writeType]
+     * @param writeType          the [WriteType] that controls how the value is transmitted
+     * @param callback           optional lambda invoked when the write completes; if `null`,
+     *   [BluetoothPeripheralCallback.onCharacteristicWrite] is used instead
+     * @return `true` if the characteristic was found and the write was enqueued, `false` otherwise
+     * @throws IllegalArgumentException if [value] is empty, too long, or [writeType] is not
+     *   supported by the characteristic
      */
-    fun writeCharacteristic(serviceUUID: UUID, characteristicUUID: UUID, value: ByteArray, writeType: WriteType): Boolean {
+    fun writeCharacteristic(serviceUUID: UUID, characteristicUUID: UUID, value: ByteArray, writeType: WriteType, callback: ((value: ByteArray, status: GattStatus) -> Unit)? = null): Boolean {
         val characteristic = getCharacteristic(serviceUUID, characteristicUUID)
-        return characteristic?.let { writeCharacteristic(it, value, writeType) } ?: false
+        return characteristic?.let { writeCharacteristic(it, value, writeType, callback) } ?: false
     }
 
     /**
-     * Write a value to a characteristic using the specified write type.
+     * Write a value to a characteristic identified by its UUID.
      *
-     * Convenience function to write a characteristic without first having to find it.
-     * All parameters must have a valid value in order for the operation to be enqueued.
+     * Convenience overload that resolves the characteristic via [getCharacteristic] and delegates
+     * to [writeCharacteristic].
      *
-     * @param characteristicUUID the characteristic's UUID
-     * @param value              the byte array to write
-     * @param writeType          the write type to use when writing.
-     * @return true if the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support writing with the specified writeType or the byte array is empty or too long
+     * @param characteristicUUID the UUID of the characteristic to write to
+     * @param value              the byte array to write; must not be empty and must not exceed
+     *   [getMaximumWriteValueLength] bytes for [writeType]
+     * @param writeType          the [WriteType] that controls how the value is transmitted
+     * @param callback           optional lambda invoked when the write completes; if `null`,
+     *   [BluetoothPeripheralCallback.onCharacteristicWrite] is used instead
+     * @return `true` if the characteristic was found and the write was enqueued, `false` otherwise
+     * @throws IllegalArgumentException if [value] is empty, too long, or [writeType] is not
+     *   supported by the characteristic
      */
-    fun writeCharacteristic(characteristicUUID: UUID, value: ByteArray, writeType: WriteType): Boolean {
+    fun writeCharacteristic(characteristicUUID: UUID, value: ByteArray, writeType: WriteType, callback: ((value: ByteArray, status: GattStatus) -> Unit)? = null): Boolean {
         val characteristic = getCharacteristic(characteristicUUID)
-        return characteristic?.let { writeCharacteristic(it, value, writeType) } ?: false
+        return characteristic?.let { writeCharacteristic(it, value, writeType, callback) } ?: false
     }
 
     /**
      * Write a value to a characteristic using the specified write type.
      *
-     * All parameters must have a valid value in order for the operation to be enqueued.
-     * The length of the byte array to write must be between 1 and getMaximumWriteValueLength(writeType).
+     * The write is queued and executed sequentially with all other GATT operations. The caller is
+     * notified of the result either through the optional [callback] lambda or, when no callback is
+     * provided, through [BluetoothPeripheralCallback.onCharacteristicWrite].
      *
-     * [BluetoothPeripheralCallback.onCharacteristicWrite] will be triggered as a result of this call.
+     * If the [value] is larger than `MTU - 3` bytes and [writeType] is [WriteType.WITH_RESPONSE],
+     * Android will automatically split it into a *Long Write* sequence. Long writes require the
+     * peripheral to support them and are less efficient than a single write; prefer requesting a
+     * larger MTU via [requestMtu] when possible.
      *
-     * @param characteristic the characteristic to write to
-     * @param value          the byte array to write
-     * @param writeType      the write type to use when writing.
-     * @param callback       optional callback invoked when the write completes; if null, [BluetoothPeripheralCallback.onCharacteristicWrite] is used instead
-     * @return true if a write operation was successfully enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support writing with the specified writeType or the byte array is empty or too long
+     * @param characteristic the [BluetoothGattCharacteristic] to write to. Must have been obtained
+     *   from [getCharacteristic] or [getService] after services have been discovered.
+     * @param value the byte array to write. Must not be empty and must not exceed
+     *   [getMaximumWriteValueLength] bytes for the chosen [writeType].
+     * @param writeType the write type that controls how the value is sent:
+     *   - [WriteType.WITH_RESPONSE] — a confirmed write; the peripheral sends an acknowledgement.
+     *   - [WriteType.WITHOUT_RESPONSE] — an unconfirmed write; faster but delivery is not guaranteed.
+     *   - [WriteType.SIGNED] — a signed write; only supported over BR/EDR connections.
+     * @param callback an optional lambda invoked on the callback handler thread when the write
+     *   operation completes. Receives two parameters:
+     *   - `value: ByteArray` — the bytes that were written (a defensive copy of the original [value]).
+     *   - `status: GattStatus` — the outcome of the write; [GattStatus.SUCCESS] indicates the
+     *     peripheral acknowledged the write successfully.
+     *   When `null`, the result is delivered to [BluetoothPeripheralCallback.onCharacteristicWrite]
+     *   instead.
+     * @return `true` if the write operation was successfully enqueued, `false` if the peripheral
+     *   is not connected or the command could not be added to the queue.
+     * @throws IllegalArgumentException if [value] is empty, if [value] exceeds
+     *   [getMaximumWriteValueLength] for the given [writeType], or if the [characteristic] does
+     *   not support the requested [writeType].
      */
     fun writeCharacteristic(characteristic: BluetoothGattCharacteristic, value: ByteArray, writeType: WriteType, callback: ((value: ByteArray, status: GattStatus) -> Unit)? = null): Boolean {
         require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
@@ -1126,15 +1286,16 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Read the value of a descriptor.
+     * Read the value of a descriptor identified by service, characteristic, and descriptor UUIDs.
      *
-     * Convenience function to read a descriptor without first having to find it.
+     * Convenience overload that resolves the descriptor and delegates to [readDescriptor].
+     * The result is delivered to [BluetoothPeripheralCallback.onDescriptorRead].
      *
-     * @param serviceUUID        the service UUID the characteristic belongs to
-     * @param characteristicUUID the characteristic's UUID
-     * @param descriptorUUID    the descriptor's UUID
-     * @return true if the descriptor was found and the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the descriptor does not support reading
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic that contains the descriptor
+     * @param descriptorUUID     the UUID of the descriptor to read
+     * @return `true` if the descriptor was found and the read was enqueued, `false` if the
+     *   descriptor could not be located or the peripheral is not connected
      */
     fun readDescriptor(serviceUUID: UUID, characteristicUUID: UUID, descriptorUUID: UUID): Boolean {
         val descriptor = getCharacteristic(serviceUUID, characteristicUUID)?.getDescriptor(descriptorUUID)
@@ -1144,8 +1305,12 @@ class BluetoothPeripheral internal constructor(
     /**
      * Read the value of a descriptor.
      *
-     * @param descriptor the descriptor to read
-     * @return true if a read operation was successfully enqueued, otherwise false
+     * The read is queued and executed sequentially with all other GATT operations. When complete,
+     * [BluetoothPeripheralCallback.onDescriptorRead] is called with the value and status.
+     *
+     * @param descriptor the [BluetoothGattDescriptor] to read
+     * @return `true` if the read was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
      */
     fun readDescriptor(descriptor: BluetoothGattDescriptor): Boolean {
         return enqueue {
@@ -1160,16 +1325,18 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Write the value of a descriptor.
+     * Write a value to a descriptor identified by service, characteristic, and descriptor UUIDs.
      *
-     * Convenience function to write a descriptor without first having to find it.
+     * Convenience overload that resolves the descriptor and delegates to [writeDescriptor].
+     * The result is delivered to [BluetoothPeripheralCallback.onDescriptorWrite].
      *
-     * @param serviceUUID        the service UUID the characteristic belongs to
-     * @param characteristicUUID the characteristic's UUID
-     * @param descriptorUUID    the descriptor's UUID
-     * @param value      the value to write
-     * @return true if the descriptor was found and the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the value is not valid
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic that contains the descriptor
+     * @param descriptorUUID     the UUID of the descriptor to write to
+     * @param value              the byte array to write; must not be empty and must not exceed 512 bytes
+     * @return `true` if the descriptor was found and the write was enqueued, `false` if the
+     *   descriptor could not be located or the peripheral is not connected
+     * @throws IllegalArgumentException if [value] is empty or exceeds the maximum length
      */
     fun writeDescriptor(serviceUUID: UUID, characteristicUUID: UUID, descriptorUUID: UUID, value: ByteArray): Boolean {
         val descriptor = getCharacteristic(serviceUUID, characteristicUUID)?.getDescriptor(descriptorUUID)
@@ -1179,12 +1346,18 @@ class BluetoothPeripheral internal constructor(
     /**
      * Write a value to a descriptor.
      *
-     * For turning on/off notifications use [BluetoothPeripheral.startNotify] instead.
+     * The write is queued and executed sequentially with all other GATT operations. When
+     * complete, [BluetoothPeripheralCallback.onDescriptorWrite] is called with the written
+     * value and status.
      *
-     * @param descriptor the descriptor to write to
-     * @param value      the value to write
-     * @return true if a write operation was successfully enqueued, otherwise false
-     * @throws IllegalArgumentException if the value is not valid
+     * To enable or disable characteristic notifications/indications, use [startNotify] or
+     * [stopNotify] instead — they handle the CCC descriptor write automatically.
+     *
+     * @param descriptor the [BluetoothGattDescriptor] to write to
+     * @param value      the byte array to write; must not be empty and must not exceed 512 bytes
+     * @return `true` if the write was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
+     * @throws IllegalArgumentException if [value] is empty or exceeds the maximum length of 512 bytes
      */
     fun writeDescriptor(descriptor: BluetoothGattDescriptor, value: ByteArray): Boolean {
         require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
@@ -1215,14 +1388,74 @@ class BluetoothPeripheral internal constructor(
         }
     }
 
+    /**
+     * Enable notifications or indications for a characteristic identified by service and
+     * characteristic UUIDs.
+     *
+     * Equivalent to calling [startNotify] with the [BluetoothGattCharacteristic] obtained from
+     * [getCharacteristic]. Updates are delivered to
+     * [BluetoothPeripheralCallback.onCharacteristicUpdate] as they arrive.
+     *
+     * Use [observe] if you prefer per-characteristic lambda callbacks rather than
+     * routing all updates through [BluetoothPeripheralCallback].
+     *
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to subscribe to
+     * @param ignoreCcdCheck     if `true`, skip the CCC descriptor write and only call
+     *   [android.bluetooth.BluetoothGatt.setCharacteristicNotification]; useful for non-standard
+     *   peripherals that do not expose a CCC descriptor
+     * @return `true` if the operation was enqueued, `false` if the characteristic could not be
+     *   found or the peripheral is not connected
+     * @throws IllegalArgumentException if the characteristic does not support notifications or
+     *   indications and [ignoreCcdCheck] is `false`
+     */
     fun startNotify(serviceUUID: UUID, characteristicUUID: UUID, ignoreCcdCheck: Boolean = false) : Boolean {
         return setNotify(serviceUUID, characteristicUUID, true, ignoreCcdCheck)
     }
 
+    /**
+     * Enable notifications or indications for a characteristic.
+     *
+     * Writes the appropriate value to the CCC descriptor (0x2902) and calls
+     * [android.bluetooth.BluetoothGatt.setCharacteristicNotification]. Updates are delivered
+     * to [BluetoothPeripheralCallback.onCharacteristicUpdate] as they arrive, and completion
+     * is reported via [BluetoothPeripheralCallback.onNotificationStateUpdate].
+     *
+     * Use [observe] if you prefer a per-characteristic lambda callback.
+     *
+     * @param characteristic the [BluetoothGattCharacteristic] to subscribe to
+     * @param ignoreCcdCheck if `true`, skip the CCC descriptor write and only call
+     *   [android.bluetooth.BluetoothGatt.setCharacteristicNotification]; useful for non-standard
+     *   peripherals that do not expose a CCC descriptor
+     * @return `true` if the operation was enqueued, `false` if the peripheral is not connected
+     * @throws IllegalArgumentException if the characteristic does not support notifications or
+     *   indications and [ignoreCcdCheck] is `false`
+     */
     fun startNotify(characteristic: BluetoothGattCharacteristic, ignoreCcdCheck: Boolean = false) : Boolean {
         return setNotify(characteristic, true, ignoreCcdCheck)
     }
 
+    /**
+     * Enable notifications or indications for a characteristic and deliver updates to [callback].
+     *
+     * This is the preferred subscription method when you want per-characteristic lambda callbacks
+     * rather than routing all updates through [BluetoothPeripheralCallback.onCharacteristicUpdate].
+     * The callback is stored internally and called every time a new value arrives; it replaces any
+     * previously registered callback for [characteristic].
+     *
+     * Completion of the subscription setup is reported via
+     * [BluetoothPeripheralCallback.onNotificationStateUpdate].
+     *
+     * @param characteristic the [BluetoothGattCharacteristic] to subscribe to
+     * @param ignoreCcdCheck if `true`, skip the CCC descriptor write and only call
+     *   [android.bluetooth.BluetoothGatt.setCharacteristicNotification]; useful for non-standard
+     *   peripherals that do not expose a CCC descriptor
+     * @param callback       lambda invoked on the callback handler thread each time a new value is
+     *   received. The single parameter is the raw `ByteArray` value of the notification/indication.
+     * @return `true` if the operation was enqueued, `false` if the peripheral is not connected
+     * @throws IllegalArgumentException if the characteristic does not support notifications or
+     *   indications and [ignoreCcdCheck] is `false`
+     */
     fun observe(characteristic: BluetoothGattCharacteristic, ignoreCcdCheck: Boolean = false, callback: (ByteArray) -> Unit) : Boolean {
         observeMap[characteristic] = callback
         return setNotify(
@@ -1232,6 +1465,21 @@ class BluetoothPeripheral internal constructor(
         )
     }
 
+    /**
+     * Enable notifications or indications for a characteristic identified by service and
+     * characteristic UUIDs, delivering updates to [callback].
+     *
+     * Convenience overload that resolves the characteristic via [getCharacteristic] and delegates
+     * to [observe].
+     *
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to subscribe to
+     * @param ignoreCcdCheck     if `true`, skip the CCC descriptor write; see [observe]
+     * @param callback           lambda invoked each time a new notification/indication value arrives
+     * @return `true` if the characteristic was found and the operation was enqueued, `false` otherwise
+     * @throws IllegalArgumentException if the characteristic does not support notifications or
+     *   indications and [ignoreCcdCheck] is `false`
+     */
     fun observe(serviceUUID: UUID, characteristicUUID: UUID, ignoreCcdCheck: Boolean = false, callback: (ByteArray) -> Unit) : Boolean {
         getCharacteristic(serviceUUID, characteristicUUID)?.let {
             return observe(
@@ -1243,13 +1491,19 @@ class BluetoothPeripheral internal constructor(
         return false
     }
 
-    /** Convenience function to observe a characteristic without first having to find it.
-     * The provided callback will be triggered when the notification is received. The callback will be triggered with the value of the characteristic.
+    /**
+     * Enable notifications or indications for a characteristic identified by its UUID,
+     * delivering updates to [callback].
      *
-     * @param characteristicUUID the characteristic's UUID
-     * @param callback           the callback to trigger when the notification is received. The callback will be triggered with the value of the characteristic.
-     * @return true if the characteristic was found and the operation was enqueued, otherwise false
-     * @throws IllegalArgumentException if the characteristic does not support notifications or indications
+     * Convenience overload that resolves the characteristic via [getCharacteristic] and delegates
+     * to [observe].
+     *
+     * @param characteristicUUID the UUID of the characteristic to subscribe to
+     * @param ignoreCcdCheck     if `true`, skip the CCC descriptor write; see [observe]
+     * @param callback           lambda invoked each time a new notification/indication value arrives
+     * @return `true` if the characteristic was found and the operation was enqueued, `false` otherwise
+     * @throws IllegalArgumentException if the characteristic does not support notifications or
+     *   indications and [ignoreCcdCheck] is `false`
      */
     fun observe(characteristicUUID: UUID, ignoreCcdCheck: Boolean = false, callback: (ByteArray) -> Unit) : Boolean {
         getCharacteristic(characteristicUUID)?.let {
@@ -1262,41 +1516,80 @@ class BluetoothPeripheral internal constructor(
         return false
     }
 
-    /** Convenience function to stop observing a characteristic without first having to find it.
+    /**
+     * Cancel the observe callback and disable notifications/indications for a characteristic
+     * identified by service and characteristic UUIDs.
      *
-     * @param serviceUUID        the service UUID the characteristic belongs to
-     * @param characteristicUUID the characteristic's UUID
-     * @return true if the characteristic was found and the operation was enqueued, otherwise false
+     * Convenience overload that resolves the characteristic and delegates to [stopObserving].
+     *
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to unsubscribe from
+     * @return `true` if the characteristic was found and the unsubscribe was enqueued,
+     *   `false` if the characteristic could not be found or the peripheral is not connected
      */
     fun stopObserving(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
         val characteristic = getCharacteristic(serviceUUID, characteristicUUID) ?: return false
         return stopObserving(characteristic)
     }
 
-    /** Convenience function to stop observing a characteristic without first having to find it.
+    /**
+     * Cancel the observe callback and disable notifications/indications for a characteristic
+     * identified by its UUID.
      *
-     * @param characteristicUUID the characteristic's UUID
-     * @return true if the characteristic was found and the operation was enqueued, otherwise false
+     * Convenience overload that resolves the characteristic and delegates to [stopObserving].
+     *
+     * @param characteristicUUID the UUID of the characteristic to unsubscribe from
+     * @return `true` if the characteristic was found and the unsubscribe was enqueued,
+     *   `false` if the characteristic could not be found or the peripheral is not connected
      */
     fun stopObserving(characteristicUUID: UUID) : Boolean {
         val characteristic = getCharacteristic(characteristicUUID) ?: return false
         return stopObserving(characteristic)
     }
 
-    /** Stop observing a characteristic. This will turn off notifications/indications for the characteristic and remove the callback.
+    /**
+     * Remove the [observe] callback and disable notifications/indications for [characteristic].
      *
-     * @param characteristic the characteristic to stop observing
-     * @return true if the operation was enqueued, otherwise false
+     * The callback registered via [observe] is removed immediately. The CCC descriptor write
+     * to turn off notifications is then enqueued as a normal GATT operation. Completion is
+     * reported via [BluetoothPeripheralCallback.onNotificationStateUpdate].
+     *
+     * @param characteristic the [BluetoothGattCharacteristic] to unsubscribe from
+     * @return `true` if the unsubscribe operation was enqueued, `false` if the peripheral is
+     *   not connected or the command could not be added to the queue
      */
     fun stopObserving(characteristic: BluetoothGattCharacteristic) : Boolean {
         observeMap.remove(characteristic)
         return setNotify(characteristic, false)
     }
 
+    /**
+     * Disable notifications or indications for a characteristic identified by service and
+     * characteristic UUIDs.
+     *
+     * Writes `DISABLE_NOTIFICATION_VALUE` to the CCC descriptor and calls
+     * [android.bluetooth.BluetoothGatt.setCharacteristicNotification]. Completion is reported
+     * via [BluetoothPeripheralCallback.onNotificationStateUpdate].
+     *
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic to unsubscribe from
+     * @return `true` if the operation was enqueued, `false` if the characteristic could not be
+     *   found or the peripheral is not connected
+     */
     fun stopNotify(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
         return setNotify(serviceUUID, characteristicUUID, false)
     }
 
+    /**
+     * Disable notifications or indications for a characteristic.
+     *
+     * Writes `DISABLE_NOTIFICATION_VALUE` to the CCC descriptor and calls
+     * [android.bluetooth.BluetoothGatt.setCharacteristicNotification]. Completion is reported
+     * via [BluetoothPeripheralCallback.onNotificationStateUpdate].
+     *
+     * @param characteristic the [BluetoothGattCharacteristic] to unsubscribe from
+     * @return `true` if the operation was enqueued, `false` if the peripheral is not connected
+     */
     fun stopNotify(characteristic: BluetoothGattCharacteristic) : Boolean {
         return setNotify(characteristic, false)
     }
@@ -1373,11 +1666,14 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Read the RSSI for a connected remote peripheral.
+     * Read the signal strength (RSSI) of the current connection.
      *
-     * [BluetoothPeripheralCallback.onReadRemoteRssi] will be triggered as a result of this call.
+     * The read is queued and executed sequentially with all other GATT operations. When
+     * complete, [BluetoothPeripheralCallback.onReadRemoteRssi] is called with the RSSI value
+     * in dBm and the operation status.
      *
-     * @return true if the operation was enqueued, false otherwise
+     * @return `true` if the RSSI read was successfully enqueued, `false` if the peripheral is
+     *   not connected or the command could not be added to the queue
      */
     fun readRemoteRssi(): Boolean {
         return enqueue {
@@ -1389,18 +1685,22 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Request an MTU size used for a given connection.
+     * Request a new ATT MTU size for the current connection.
      *
-     * When performing a write request operation (write without response),
-     * the data sent is truncated to the MTU size. This function may be used
-     * to request a larger MTU size to be able to send more data at once.
+     * A larger MTU allows more data to be sent in a single BLE packet, reducing the number
+     * of packets needed for large writes and improving throughput. The actual MTU agreed upon
+     * may be smaller than the requested value if the peripheral or controller does not support
+     * it. According to the Bluetooth specification this should be requested at most once per
+     * connection.
      *
-     * Note that requesting an MTU should only take place once per connection, according to the Bluetooth standard.
+     * When the MTU negotiation completes, [BluetoothPeripheralCallback.onMtuChanged] is called
+     * with the negotiated value and [currentMtu] is updated accordingly.
      *
-     * [BluetoothPeripheralCallback.onMtuChanged] will be triggered as a result of this call.
-     *
-     * @param mtu the desired MTU size (must be between 23 and 517)
-     * @return true if the operation was enqueued, false otherwise
+     * @param mtu the desired MTU in bytes; must be in the range [[DEFAULT_MTU]..[MAX_MTU]]
+     *   (23–517 inclusive)
+     * @return `true` if the request was successfully enqueued, `false` if the peripheral is
+     *   not connected or the command could not be added to the queue
+     * @throws IllegalArgumentException if [mtu] is outside the valid range
      */
     fun requestMtu(mtu: Int): Boolean {
         require(mtu in DEFAULT_MTU..MAX_MTU) { "mtu must be between $DEFAULT_MTU and $MAX_MTU" }
@@ -1417,10 +1717,20 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Request a different connection priority.
+     * Request a change in connection parameters (interval, latency, supervision timeout).
      *
-     * @param priority the requested connection priority
-     * @return true if request was enqueued, false if not
+     * The connection priority maps to a pre-defined set of connection parameter ranges:
+     * - [ConnectionPriority.HIGH] — low latency, high power consumption (interval ~7.5–15 ms).
+     * - [ConnectionPriority.BALANCED] — the default; a trade-off between latency and power.
+     * - [ConnectionPriority.LOW_POWER] — high latency, low power consumption (interval ~100–500 ms).
+     *
+     * There is no reliable GATT callback for this operation. The command is considered complete
+     * after a fixed internal delay. Connection parameter changes are reported asynchronously (and
+     * only on Android 8+) via [BluetoothPeripheralCallback.onConnectionUpdated].
+     *
+     * @param priority the desired [ConnectionPriority]
+     * @return `true` if the request was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
      */
     fun requestConnectionPriority(priority: ConnectionPriority): Boolean {
         return enqueue {
@@ -1436,17 +1746,24 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Set the preferred connection PHY for this app. Please note that this is just a
-     * recommendation, whether the PHY change will happen depends on other applications preferences,
-     * local and remote controller capabilities. Controller can override these settings.
+     * Set the preferred Bluetooth PHY (Physical Layer) for the current connection.
      *
-     * [BluetoothPeripheralCallback.onPhyUpdate] will be triggered as a result of this call, even
-     * if no PHY change happens. It is also triggered when remote device updates the PHY.
+     * This is a preference only — the actual PHY used depends on the local and remote
+     * controller capabilities as well as preferences set by other apps. The result (whether
+     * or not the PHY actually changed) is reported via [BluetoothPeripheralCallback.onPhyUpdate].
      *
-     * @param txPhy      the desired TX PHY
-     * @param rxPhy      the desired RX PHY
-     * @param phyOptions the desired optional sub-type for PHY_LE_CODED
-     * @return true if request was enqueued, false if not
+     * **Note:** On Android 13 (API 33) there is a known OS bug where [BluetoothPeripheralCallback.onPhyUpdate]
+     * may not always be called. The library works around this by completing the queued command
+     * automatically after a short delay on that API level.
+     *
+     * @param txPhy       the preferred transmit PHY — one of [PhyType.LE_1M], [PhyType.LE_2M],
+     *   or [PhyType.LE_CODED]
+     * @param rxPhy       the preferred receive PHY — one of [PhyType.LE_1M], [PhyType.LE_2M],
+     *   or [PhyType.LE_CODED]
+     * @param phyOptions  additional options for [PhyType.LE_CODED]; use [PhyOptions.NO_PREFERRED]
+     *   for [PhyType.LE_1M] and [PhyType.LE_2M]
+     * @return `true` if the request was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
      */
     fun setPreferredPhy(txPhy: PhyType, rxPhy: PhyType, phyOptions: PhyOptions): Boolean {
         return enqueue {
@@ -1464,8 +1781,13 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Read the current transmitter PHY and receiver PHY of the connection. The values are returned
-     * in [BluetoothPeripheralCallback.onPhyUpdate]
+     * Read the current transmit and receive PHY of the connection.
+     *
+     * The result is delivered to [BluetoothPeripheralCallback.onPhyUpdate] with the current
+     * TX and RX [PhyType] values and [GattStatus.SUCCESS].
+     *
+     * @return `true` if the read was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
      */
     fun readPhy(): Boolean {
         return enqueue {
@@ -1475,9 +1797,18 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
-     * Asynchronous method to clear the services cache. Make sure to add a delay when using this!
+     * Clear the Android Bluetooth GATT services cache for this peripheral via the hidden
+     * `BluetoothGatt.refresh()` API.
      *
-     * @return true if the method was executed, false if not executed
+     * This forces the next service discovery to fetch fresh service information from the
+     * peripheral instead of returning stale cached data. Because `refresh()` is a hidden
+     * (non-public) API it may not be available on all devices or future Android versions.
+     *
+     * **Important:** Always add a delay (e.g. 200–500 ms) after calling this method before
+     * initiating service discovery, to give the stack time to clear its internal cache.
+     *
+     * @return `true` if `refresh()` was found and executed successfully, `false` if the
+     *   peripheral is not connected or the method could not be invoked via reflection
      */
     fun clearServicesCache(): Boolean {
         if (bluetoothGatt == null) return false
@@ -1703,7 +2034,11 @@ class BluetoothPeripheral internal constructor(
         private val CCC_DESCRIPTOR_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
         /**
-         * Max MTU that Android can handle
+         * The maximum ATT MTU that the Android Bluetooth stack can negotiate, in bytes (517).
+         *
+         * This value can be passed to [requestMtu] to request the largest possible payload size.
+         * The actual MTU agreed upon during negotiation may be lower if the remote peripheral
+         * or its controller does not support values this large.
          */
         const val MAX_MTU = 517
 
