@@ -30,6 +30,16 @@ import android.bluetooth.BluetoothGattDescriptor
  */
 abstract class BluetoothPeripheralCallback {
     /**
+     * Callback invoked when the connection state of the peripheral has changed.
+     *
+     * Use [BluetoothPeripheral.isConnected] to get the current connection state of the peripheral
+     *
+     * @param peripheral the peripheral
+     * @param newState the new connection state
+     */
+    open fun onConnectionStateChange(peripheral: BluetoothPeripheral, newState: ConnectionState) {}
+
+    /**
      * Callback invoked when the list of remote services, characteristics and descriptors
      * for the remote peripheral has been discovered.
      */

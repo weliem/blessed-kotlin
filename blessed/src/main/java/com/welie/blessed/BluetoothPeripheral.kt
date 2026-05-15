@@ -168,10 +168,22 @@ class BluetoothPeripheral internal constructor(
                     BluetoothProfile.STATE_DISCONNECTING -> {
                         Logger.i(TAG, "peripheral '%s' is disconnecting", address)
                         listener.disconnecting(this@BluetoothPeripheral)
+                        callbackHandler.post {
+                            peripheralCallback.onConnectionStateChange(
+                                this@BluetoothPeripheral,
+                                ConnectionState.DISCONNECTING
+                            )
+                        }
                     }
                     BluetoothProfile.STATE_CONNECTING -> {
                         Logger.i(TAG, "peripheral '%s' is connecting", address)
                         listener.connecting(this@BluetoothPeripheral)
+                        callbackHandler.post {
+                            peripheralCallback.onConnectionStateChange(
+                                this@BluetoothPeripheral,
+                                ConnectionState.CONNECTING
+                            )
+                        }
                     }
                     else -> Logger.e(TAG, "unknown state received")
                 }
@@ -199,7 +211,10 @@ class BluetoothPeripheral internal constructor(
 
             // Issue 'connected' since we are now fully connected including service discovery
             listener.connected(this@BluetoothPeripheral)
-            callbackHandler.post { peripheralCallback.onServicesDiscovered(this@BluetoothPeripheral) }
+            callbackHandler.post {
+                peripheralCallback.onConnectionStateChange(this@BluetoothPeripheral, ConnectionState.CONNECTED)
+                peripheralCallback.onServicesDiscovered(this@BluetoothPeripheral)
+            }
         }
 
         override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
@@ -873,6 +888,12 @@ class BluetoothPeripheral internal constructor(
         bondLost = false
         if (notify) {
             listener.disconnected(this@BluetoothPeripheral, status)
+            callbackHandler.post {
+                peripheralCallback.onConnectionStateChange(
+                    this@BluetoothPeripheral,
+                    ConnectionState.DISCONNECTED
+                )
+            }
         }
     }
 
