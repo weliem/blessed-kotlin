@@ -95,6 +95,10 @@ class BluetoothPeripheral internal constructor(
         ConcurrentHashMap()
     private var writeMap: MutableMap<BluetoothGattCharacteristic, (value: ByteArray, status: GattStatus) -> Unit> =
         ConcurrentHashMap()
+    private var readDescriptorMap: MutableMap<BluetoothGattDescriptor, (value: ByteArray, status: GattStatus) -> Unit> =
+        ConcurrentHashMap()
+    private var writeDescriptorMap: MutableMap<BluetoothGattDescriptor, (value: ByteArray, status: GattStatus) -> Unit> =
+        ConcurrentHashMap()
 
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -247,7 +251,11 @@ class BluetoothPeripheral internal constructor(
                 }
                 callbackHandler.post { peripheralCallback.onNotificationStateUpdate(this@BluetoothPeripheral, parentCharacteristic, gattStatus) }
             } else {
-                callbackHandler.post { peripheralCallback.onDescriptorWrite(this@BluetoothPeripheral, value, descriptor, gattStatus) }
+                writeDescriptorMap.remove(descriptor)?.let { callback ->
+                    callbackHandler.post { callback(value, gattStatus) }
+                } ?: run {
+                    callbackHandler.post { peripheralCallback.onDescriptorWrite(this@BluetoothPeripheral, value, descriptor, gattStatus) }
+                }
             }
             completedCommand()
         }
@@ -259,7 +267,12 @@ class BluetoothPeripheral internal constructor(
                 Logger.e(TAG, "reading descriptor <%s> failed for device '%s, status '%s'", descriptor.uuid, address, gattStatus)
             }
 
-            callbackHandler.post { peripheralCallback.onDescriptorRead(this@BluetoothPeripheral, value, descriptor, gattStatus) }
+            readDescriptorMap[descriptor]?.let {
+                callbackHandler.post { it(value, gattStatus) }
+            } ?: run {
+                callbackHandler.post { peripheralCallback.onDescriptorRead(this@BluetoothPeripheral, value, descriptor, gattStatus) }
+            }
+            readDescriptorMap.remove(descriptor)
             completedCommand()
         }
 
@@ -874,6 +887,8 @@ class BluetoothPeripheral internal constructor(
         observeMap.clear()
         readMap.clear()
         writeMap.clear()
+        readDescriptorMap.clear()
+        writeDescriptorMap.clear()
         currentMtu = DEFAULT_MTU
         currentCommand = IDLE
         manuallyBonding = false
@@ -1346,6 +1361,53 @@ class BluetoothPeripheral internal constructor(
     }
 
     /**
+     * Read the value of a descriptor identified by service, characteristic, and descriptor UUIDs,
+     * delivering the result to a callback lambda instead of [BluetoothPeripheralCallback].
+     *
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic that contains the descriptor
+     * @param descriptorUUID     the UUID of the descriptor to read
+     * @param callback           lambda invoked on the callback handler thread when the read
+     *   completes. Receives:
+     *   - `value: ByteArray` — the bytes read from the descriptor (empty on failure).
+     *   - `status: GattStatus` — [GattStatus.SUCCESS] on success, or an error code.
+     * @return `true` if the descriptor was found and the read was enqueued, `false` if the
+     *   descriptor could not be located or the peripheral is not connected
+     */
+    fun readDescriptor(serviceUUID: UUID, characteristicUUID: UUID, descriptorUUID: UUID, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
+        val descriptor = getCharacteristic(serviceUUID, characteristicUUID)?.getDescriptor(descriptorUUID)
+        return descriptor?.let { readDescriptor(it, callback) } ?: false
+    }
+
+    /**
+     * Read the value of a descriptor, delivering the result to a callback lambda instead of
+     * [BluetoothPeripheralCallback].
+     *
+     * The read is queued and executed sequentially with all other GATT operations.
+     *
+     * @param descriptor the [BluetoothGattDescriptor] to read
+     * @param callback   lambda invoked on the callback handler thread when the read completes.
+     *   Receives:
+     *   - `value: ByteArray` — the bytes read from the descriptor (empty on failure).
+     *   - `status: GattStatus` — [GattStatus.SUCCESS] on success, or an error code.
+     * @return `true` if the read was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
+     */
+    fun readDescriptor(descriptor: BluetoothGattDescriptor, callback: (value: ByteArray, status: GattStatus) -> Unit): Boolean {
+        return enqueue {
+            readDescriptorMap[descriptor] = callback
+            if (bluetoothGatt?.readDescriptor(descriptor) == true) {
+                Logger.d(TAG, "reading descriptor <%s>", descriptor.uuid)
+                nrTries++
+            } else {
+                Logger.e(TAG, "readDescriptor failed for descriptor: %s", descriptor.uuid)
+                readDescriptorMap.remove(descriptor)
+                completedCommand()
+            }
+        }
+    }
+
+    /**
      * Write a value to a descriptor identified by service, characteristic, and descriptor UUIDs.
      *
      * Convenience overload that resolves the descriptor and delegates to [writeDescriptor].
@@ -1392,6 +1454,75 @@ class BluetoothPeripheral internal constructor(
                 nrTries++
             } else {
                 Logger.e(TAG, "writeDescriptor failed for descriptor: %s", descriptor.uuid)
+                completedCommand()
+            }
+        }
+    }
+
+    /**
+     * Write a value to a descriptor identified by service, characteristic, and descriptor UUIDs,
+     * and deliver the result to the supplied [callback] instead of
+     * [BluetoothPeripheralCallback.onDescriptorWrite].
+     *
+     * Convenience overload that resolves the descriptor and delegates to
+     * [writeDescriptor(BluetoothGattDescriptor, ByteArray, (ByteArray, GattStatus) -> Unit)].
+     *
+     * @param serviceUUID        the UUID of the service that contains the characteristic
+     * @param characteristicUUID the UUID of the characteristic that contains the descriptor
+     * @param descriptorUUID     the UUID of the descriptor to write to
+     * @param value              the byte array to write; must not be empty and must not exceed 512 bytes
+     * @param callback           lambda invoked on the callback handler when the write completes,
+     *                           receiving the written [ByteArray] and a [GattStatus]
+     * @return `true` if the descriptor was found and the write was enqueued, `false` if the
+     *   descriptor could not be located or the peripheral is not connected
+     * @throws IllegalArgumentException if [value] is empty or exceeds the maximum length
+     */
+    fun writeDescriptor(
+        serviceUUID: UUID,
+        characteristicUUID: UUID,
+        descriptorUUID: UUID,
+        value: ByteArray,
+        callback: (value: ByteArray, status: GattStatus) -> Unit
+    ): Boolean {
+        val descriptor = getCharacteristic(serviceUUID, characteristicUUID)?.getDescriptor(descriptorUUID)
+        return descriptor?.let { writeDescriptor(it, value, callback) } ?: false
+    }
+
+    /**
+     * Write a value to a descriptor and deliver the result to the supplied [callback] instead of
+     * [BluetoothPeripheralCallback.onDescriptorWrite].
+     *
+     * The write is queued and executed sequentially with all other GATT operations. When
+     * complete, [callback] is invoked with the written value and status.
+     *
+     * To enable or disable characteristic notifications/indications, use [startNotify] or
+     * [stopNotify] instead — they handle the CCC descriptor write automatically.
+     *
+     * @param descriptor the [BluetoothGattDescriptor] to write to
+     * @param value      the byte array to write; must not be empty and must not exceed 512 bytes
+     * @param callback   lambda invoked on the callback handler when the write completes,
+     *                   receiving the written [ByteArray] and a [GattStatus]
+     * @return `true` if the write was successfully enqueued, `false` if the peripheral is not
+     *   connected or the command could not be added to the queue
+     * @throws IllegalArgumentException if [value] is empty or exceeds the maximum length of 512 bytes
+     */
+    fun writeDescriptor(
+        descriptor: BluetoothGattDescriptor,
+        value: ByteArray,
+        callback: (value: ByteArray, status: GattStatus) -> Unit
+    ): Boolean {
+        require(value.isNotEmpty()) { VALUE_BYTE_ARRAY_IS_EMPTY }
+        require(value.size <= getMaximumWriteValueLength(WriteType.WITH_RESPONSE)) { VALUE_BYTE_ARRAY_IS_TOO_LONG }
+
+        val bytesToWrite = copyOf(value)
+        return enqueue {
+            writeDescriptorMap[descriptor] = callback
+            if (internalWriteDescriptor(descriptor, bytesToWrite)) {
+                Logger.d(TAG, "writing <%s> to descriptor <%s>", bytesToWrite.asHexString(), descriptor.uuid)
+                nrTries++
+            } else {
+                Logger.e(TAG, "writeDescriptor failed for descriptor: %s", descriptor.uuid)
+                writeDescriptorMap.remove(descriptor)
                 completedCommand()
             }
         }
