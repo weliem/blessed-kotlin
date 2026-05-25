@@ -888,7 +888,7 @@ class BluetoothPeripheral internal constructor(
                         context,
                         false,
                         bluetoothGattCallback,
-                        BluetoothDevice.TRANSPORT_LE
+                        transport.value
                     )
                 } catch (e: SecurityException) {
                     Logger.d(TAG, "exception when calling connectGatt")
@@ -944,7 +944,7 @@ class BluetoothPeripheral internal constructor(
                         context,
                         true,
                         bluetoothGattCallback,
-                        BluetoothDevice.TRANSPORT_LE
+                        transport.value
                     )
                 } catch (e: SecurityException) {
                     Logger.e(TAG, "failed to autoconnect to peripheral '%s'", address)
