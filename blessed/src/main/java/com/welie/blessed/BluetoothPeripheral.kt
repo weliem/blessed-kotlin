@@ -85,6 +85,7 @@ class BluetoothPeripheral internal constructor(
     @Volatile
     private var bluetoothGatt: BluetoothGatt? = null
     private var cachedName = ""
+    @Volatile
     private var currentWriteBytes = ByteArray(0)
     private var currentCommand = IDLE
     private val notifyingCharacteristics: MutableSet<BluetoothGattCharacteristic> = HashSet()
@@ -1111,6 +1112,7 @@ class BluetoothPeripheral internal constructor(
         manuallyBonding = false
         peripheralInitiatedBonding = false
         discoveryStarted = false
+        characteristics.clear()
         try {
             context.unregisterReceiver(bondStateReceiver)
             context.unregisterReceiver(pairingRequestBroadcastReceiver)
@@ -1918,11 +1920,15 @@ class BluetoothPeripheral internal constructor(
         callback: (ByteArray) -> Unit
     ): Boolean {
         observeMap[characteristic] = callback
-        return setNotify(
+        val enqueued = setNotify(
             characteristic = characteristic,
             enable = true,
             ignoreCcdCheck = ignoreCcdCheck
         )
+        if (!enqueued) {
+            observeMap.remove(characteristic)
+        }
+        return enqueued
     }
 
     /**
@@ -2108,9 +2114,8 @@ class BluetoothPeripheral internal constructor(
                         "setCharacteristicNotification failed for characteristic: %s",
                         characteristic.uuid
                     )
-                    completedCommand()
-                    return@enqueue
                 }
+                completedCommand()
             }
         } else {
             val message = String.format(
