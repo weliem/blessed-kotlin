@@ -2361,9 +2361,11 @@ class BluetoothPeripheral internal constructor(
      * The current command has been completed, move to the next command in the queue (if any)
      */
     private fun completedCommand() {
-        isRetrying = false
-        commandQueue.poll()
-        commandQueueBusy = false
+        synchronized(this) {
+            isRetrying = false
+            commandQueue.poll()
+            commandQueueBusy = false
+        }
         nextCommand()
     }
 
@@ -2371,15 +2373,17 @@ class BluetoothPeripheral internal constructor(
      * Retry the current command. Typically used when a read/write fails and triggers a bonding procedure
      */
     private fun retryCommand() {
-        commandQueueBusy = false
-        val currentCommand = commandQueue.peek()
-        if (currentCommand != null) {
-            if (nrTries >= MAX_TRIES) {
-                // Max retries reached, give up on this one and proceed
-                Logger.d(TAG, "max number of tries reached, not retrying operation anymore")
-                commandQueue.poll()
-            } else {
-                isRetrying = true
+        synchronized(this) {
+            commandQueueBusy = false
+            val currentCommand = commandQueue.peek()
+            if (currentCommand != null) {
+                if (nrTries >= MAX_TRIES) {
+                    // Max retries reached, give up on this one and proceed
+                    Logger.d(TAG, "max number of tries reached, not retrying operation anymore")
+                    commandQueue.poll()
+                } else {
+                    isRetrying = true
+                }
             }
         }
         nextCommand()
