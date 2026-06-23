@@ -51,7 +51,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @SuppressLint("MissingPermission")
 @Suppress("unused")
-class BluetoothCentralManager(private val context: Context, private val bluetoothCentralManagerCallback: BluetoothCentralManagerCallback, private val callBackHandler: Handler) {
+class BluetoothCentralManager(private val context: Context, private val bluetoothCentralManagerCallback: BluetoothCentralManagerCallback, private val callBackHandler: Handler): PeripheralQualifier {
     private val bluetoothAdapter: BluetoothAdapter
 
     @Volatile
@@ -1037,6 +1037,10 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
             }
             BluetoothAdapter.STATE_TURNING_ON -> Logger.d(TAG, "bluetooth turning on")
         }
+    }
+
+    override fun isDeviceAPeripheral(device: BluetoothDevice): Boolean {
+        return unconnectedPeripherals.containsKey(device.address)
     }
 
     init {
