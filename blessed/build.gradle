@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id 'com.android.library'
     id 'maven-publish'
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -10,7 +11,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        minSdk = 28
+        minSdk = 26
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -25,11 +26,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlin {
-        compilerOptions {
-            jvmTarget = JvmTarget.JVM_17
-        }
-    }
     testOptions {
         unitTests {
             includeAndroidResources = true
@@ -43,6 +39,12 @@ android {
     }
     lint {
         targetSdk 36
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
@@ -61,7 +63,7 @@ afterEvaluate {
                 from components.release
                 groupId = 'com.github.weliem'
                 artifactId = 'blessed-kotlin'
-                version = '3.0.0'
+                version = '3.1.0.1-baracoda'
             }
         }
     }

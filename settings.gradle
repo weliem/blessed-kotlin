@@ -16,6 +16,7 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "Blessed3"
-include ':app'
-include ':peripheral'
+// The demo apps are excluded while this branch is consumed as an included build by the AtlasSDK
+//include ':app'
+//include ':peripheral'
 include ':blessed'
